@@ -13,6 +13,8 @@ version: '3'
 #   task test        # run e2e tests against local server
 #   task deploy      # deploy to Cloudflare Workers
 #
+# All tasks are idempotent — safe to run multiple times.
+#
 # Architecture notes:
 #   - Workers CANNOT share I/O objects between requests (no persistent SSE broadcast)
 #   - Module-level state works locally (single process) but is per-isolate in production
@@ -42,22 +44,41 @@ tasks:
       - task: logs
 
   start:
-    desc: "Starts the server in the background"
+    desc: "Starts the server in the background (skips if already running)"
     cmds:
-      - mkdir -p .wrangler
-      - bun run dev > {{.LOG_FILE}} 2>&1 &
       - |
+        if curl -s -o /dev/null -w '' {{.LOCAL_URL}}/ 2>/dev/null; then
+          echo "Server already running at {{.LOCAL_URL}}"
+          exit 0
+        fi
+        mkdir -p .wrangler
+        bun run dev > {{.LOG_FILE}} 2>&1 &
         for i in $(seq 1 15); do
           curl -s -o /dev/null -w '' {{.LOCAL_URL}}/ 2>/dev/null && break
           sleep 1
         done
-      - echo "Server ready at {{.LOCAL_URL}}"
+        echo "Server ready at {{.LOCAL_URL}}"
     silent: true
 
   stop:
-    desc: "Stops the development server"
+    desc: "Stops the development server (no-op if not running)"
     cmds:
-      - pkill -f "wrangler dev" || echo "Server not found or already stopped."
+      - pkill -f "wrangler dev" || true
+    silent: true
+
+  restart:
+    desc: "Stops and starts the development server"
+    cmds:
+      - task: stop
+      - sleep 1
+      - |
+        mkdir -p .wrangler
+        bun run dev > {{.LOG_FILE}} 2>&1 &
+        for i in $(seq 1 15); do
+          curl -s -o /dev/null -w '' {{.LOCAL_URL}}/ 2>/dev/null && break
+          sleep 1
+        done
+        echo "Server ready at {{.LOCAL_URL}}"
     silent: true
 
   logs:
