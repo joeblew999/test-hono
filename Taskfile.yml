@@ -133,34 +133,38 @@ tasks:
       - bun run deploy
 
   ci:secrets:
-    desc: "Sets Cloudflare secrets in GitHub repo for CI auto-deploy"
+    desc: "Creates Cloudflare API token (browser) and sets GitHub secrets"
     summary: |
-      Extracts account ID from your local wrangler login, then sets
-      CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN as GitHub secrets.
-
-      The API token must be created manually (one-time) at:
-        https://dash.cloudflare.com/profile/api-tokens
-        → Use the "Edit Cloudflare Workers" template
+      Automates the full CI setup:
+        1. Gets account ID from your local wrangler login
+        2. Opens a browser to create an API token (automated via Playwright)
+        3. Sets both as GitHub secrets via gh CLI
 
       Usage:
-        task ci:secrets -- YOUR_API_TOKEN
+        task ci:secrets                    # fully automated (opens browser)
+        task ci:secrets -- YOUR_API_TOKEN  # skip browser, use existing token
     cmds:
       - |
-        # Ensure logged in
+        # Ensure logged in to Cloudflare
         ACCOUNT_ID=$(bunx wrangler whoami 2>/dev/null | grep -oE '[a-f0-9]{32}' | head -1)
         if [ -z "$ACCOUNT_ID" ]; then
           echo "Not logged in to Cloudflare. Run 'task login' first."
           exit 1
         fi
+        echo "Account ID: $ACCOUNT_ID"
 
-        # Get API token from CLI args or prompt
+        # Get API token: from CLI args, or create via Playwright
         API_TOKEN="{{.CLI_ARGS}}"
         if [ -z "$API_TOKEN" ]; then
-          echo "Create an API token at:"
-          echo "  https://dash.cloudflare.com/profile/api-tokens"
-          echo "  → Use the 'Edit Cloudflare Workers' template"
           echo ""
-          printf "Paste your API token: "
+          echo "Opening browser to create API token..."
+          API_TOKEN=$(bun scripts/create-cf-token.ts 2>/dev/tty) || true
+        fi
+
+        # Fallback: prompt user to paste
+        if [ -z "$API_TOKEN" ]; then
+          echo ""
+          printf "Paste your API token (or Ctrl+C to abort): "
           read -r API_TOKEN
         fi
 
