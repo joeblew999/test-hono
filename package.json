@@ -19,8 +19,8 @@
     "typescript": "^5"
   },
   "dependencies": {
-    "@hono/swagger-ui": "^0.5.3",
     "@hono/zod-openapi": "^1.2.1",
+    "@scalar/hono-api-reference": "^0.9.23",
     "@starfederation/datastar": "^1.0.0-RC.7",
     "hono": "^4.11.7"
   }

@@ -1,36 +1,52 @@
-# Project Memory
+# Architecture Notes
 
-## Stack
-- Hono (OpenAPIHono) on Cloudflare Workers via wrangler
-- Datastar v1.0.0-RC.7 for reactive frontend (SSE-driven)
-- Playwright for e2e tests
-- Bun as package manager
+## Content Negotiation
 
-## Key Learnings
+The key architectural pattern: **one set of OpenAPI routes serves both JSON (REST) and SSE (Datastar)**.
 
-### Datastar v1 (RC.7) Attributes
-- `data-signals='{"key": val}'` (NOT `ds-store` or `data-store`)
-- `data-text="$signalName"` ($ prefix required)
-- `data-on:click="@post('/endpoint')"` (NOT `ds-on-click-post`)
-- `data-on:load="@get('/sse')"` for persistent SSE connection
-- CDN: `<script type="module" src="https://cdn.jsdelivr.net/gh/starfederation/datastar@VERSION/bundles/datastar.js">`
-- All backend actions (`@get`, `@post`) expect SSE responses
+Two response helpers in `api.ts`:
+- `respond(c, data)` — checks `Accept` header → `datastar-patch-signals` SSE or JSON
+- `respondFragment(c, data)` — sends both signal patch AND DOM element patch via SSE
 
-### Datastar SSE Format
-- Event: `datastar-patch-signals`
-- Data line: `data: signals {"key": value}` (must prefix JSON with `signals `)
+This means the Datastar frontend and the Scalar "Try It" client hit the **same endpoints** (`/api/counter`, `/api/counter/increment`, etc.). No duplicate routes.
 
-### Cloudflare Workers I/O Isolation (Critical)
-- Workers CANNOT share I/O objects between request handlers
-- Persistent SSE broadcast (holding streams open + writing from other requests) is impossible
-- Error: "Cannot perform I/O on behalf of a different request"
-- Hanging `await new Promise` in a handler triggers "code had hung" cancellation
-- Solution: use **server-side state** (module-level variable) as single source of truth
-- For true real-time push across tabs, use Durable Objects + WebSockets
+## Datastar v1 RC.7 (Self-Hosted)
 
-### Wrangler Static Files
-- Use `[assets] directory = "./static"` (NOT `[site] bucket`)
-- `[site]` requires manual `getAssetFromKV` handling; `[assets]` auto-serves
+RC.7 is a GitHub-only release (Dec 2025), not published to npm. We self-host:
+- `static/datastar.js` — production bundle (30KB)
+- `static/datastar.js.map` — source map for browser debugging
 
-### Tool Quirk
-- Write tool may corrupt `@` in URLs (email protection). Verify with hexdump and fix with python/sed if needed.
+### SSE Events
+- `datastar-patch-signals` — update reactive signals
+  - Data format: `signals {"key": value}` (prefix `signals ` before JSON)
+- `datastar-patch-elements` — patch DOM with server-rendered HTML
+  - Multiline data format: `selector #id`, `mode inner`, `elements <html>`
+  - Modes: outer, inner, replace, prepend, append, before, after
+
+### Version Pitfall
+npm's `@starfederation/datastar` latest is beta.11 (older). RC.7 uses different event names and attribute names. Never mix versions.
+
+## Cloudflare Workers I/O Isolation
+
+Workers CANNOT share I/O objects between request handlers. This means:
+- Persistent SSE broadcast (holding streams open and writing from other requests) is impossible
+- Module-level variables are per-isolate, NOT shared across production instances
+- Counter state uses D1 (Cloudflare's SQLite) for durable, shared state
+- For true real-time push across tabs, you'd need Durable Objects + WebSockets
+
+## D1 Single-Row Pattern
+
+The counter uses a single-row table with a `CHECK (id = 1)` constraint:
+```sql
+CREATE TABLE counter (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  value INTEGER NOT NULL DEFAULT 0
+);
+INSERT INTO counter (id, value) VALUES (1, 0);
+```
+
+Atomic increment: `UPDATE counter SET value = value + 1 WHERE id = 1 RETURNING value`
+
+## Static Files
+
+Wrangler serves static files via `[assets] directory = "./static"` in `wrangler.toml`. Do NOT use `[site] bucket` — that requires manual `getAssetFromKV` handling.

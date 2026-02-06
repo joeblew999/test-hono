@@ -3,25 +3,451 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hono + Datastar</title>
+    <title>Hono + Datastar Showcase</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>🔥</text></svg>">
-    <script type="module" src="https://cdn.jsdelivr.net/gh/starfederation/datastar@v1.0.0-RC.7/bundles/datastar.js"></script>
+    <script type="module" src="/datastar.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 48px 24px;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 48px;
+        }
+        header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #f8fafc;
+            letter-spacing: -0.03em;
+            margin-bottom: 8px;
+        }
+        header p {
+            color: #64748b;
+            font-size: 0.95rem;
+        }
+        .stack {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            margin-top: 16px;
+            flex-wrap: wrap;
+        }
+        .badge {
+            font-size: 0.7rem;
+            font-weight: 500;
+            padding: 3px 8px;
+            border-radius: 4px;
+            background: #1e293b;
+            color: #64748b;
+            border: 1px solid #334155;
+        }
+
+        /* Sections */
+        section {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 12px;
+            padding: 32px;
+            margin-bottom: 24px;
+        }
+        section h2 {
+            font-size: 1.15rem;
+            font-weight: 600;
+            color: #f8fafc;
+            margin-bottom: 4px;
+        }
+        .section-desc {
+            font-size: 0.8rem;
+            color: #64748b;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+        .pattern-tag {
+            display: inline-block;
+            font-size: 0.65rem;
+            font-family: ui-monospace, monospace;
+            padding: 2px 6px;
+            border-radius: 3px;
+            background: #0f172a;
+            color: #818cf8;
+            border: 1px solid #334155;
+            margin-right: 4px;
+            margin-bottom: 4px;
+        }
+
+        /* Counter */
+        .count {
+            font-size: 5rem;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            color: #f8fafc;
+            line-height: 1;
+            text-align: center;
+            margin: 24px 0;
+            transition: color 0.2s;
+        }
+        .count.positive { color: #4ade80; }
+        .count.negative { color: #f87171; }
+        .count.zero { color: #64748b; }
+
+        /* Buttons */
+        .buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        button {
+            font-family: inherit;
+            font-size: 0.9rem;
+            font-weight: 500;
+            padding: 8px 20px;
+            border: 1px solid #475569;
+            border-radius: 8px;
+            background: #334155;
+            color: #e2e8f0;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        button:hover { background: #475569; border-color: #64748b; }
+        button:active { transform: scale(0.97); }
+        button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        /* Indicator */
+        .indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #818cf8;
+            margin-left: 8px;
+            animation: pulse 0.6s ease-in-out infinite;
+            vertical-align: middle;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        /* Messages */
+        .message {
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            margin-bottom: 8px;
+            border-left: 3px solid;
+        }
+        .message.green { background: #052e16; border-color: #4ade80; color: #86efac; }
+        .message.red { background: #2a0a0a; border-color: #f87171; color: #fca5a5; }
+        .message.blue { background: #0c1a3a; border-color: #60a5fa; color: #93c5fd; }
+        .message.gray { background: #1a1a2e; border-color: #64748b; color: #94a3b8; }
+
+        /* Values grid */
+        .values-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 12px;
+        }
+        .value-card {
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+        }
+        .value-card .label {
+            font-size: 0.7rem;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 4px;
+        }
+        .value-card .value {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #f8fafc;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* Set value input */
+        .set-value-row {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            justify-content: center;
+        }
+        input[type="number"] {
+            font-family: inherit;
+            font-size: 1rem;
+            padding: 8px 12px;
+            border: 1px solid #475569;
+            border-radius: 8px;
+            background: #0f172a;
+            color: #f8fafc;
+            width: 120px;
+            text-align: center;
+        }
+        input[type="number"]:focus {
+            outline: none;
+            border-color: #818cf8;
+        }
+
+        /* Keyboard */
+        kbd {
+            display: inline-block;
+            font-family: ui-monospace, monospace;
+            font-size: 0.8rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            background: #0f172a;
+            border: 1px solid #475569;
+            color: #e2e8f0;
+        }
+        .shortcut-list {
+            display: flex;
+            gap: 24px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+        .shortcut-item {
+            font-size: 0.85rem;
+            color: #94a3b8;
+        }
+
+        /* Server fragment */
+        .fragment-box {
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+            min-height: 48px;
+        }
+        .fragment-content strong {
+            font-size: 1.2rem;
+            color: #f8fafc;
+        }
+        .fragment-content span {
+            font-size: 0.75rem;
+            color: #64748b;
+        }
+
+        /* Links */
+        .links {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            font-size: 0.85rem;
+            margin-top: 32px;
+        }
+        .links a {
+            color: #64748b;
+            text-decoration: none;
+            transition: color 0.15s;
+        }
+        .links a:hover { color: #94a3b8; }
+    </style>
 </head>
 <body>
-    <div data-signals='{"count": 0}' data-on:load="@get('/sse')">
-        <h1>Hono + Datastar Counter</h1>
+    <div class="container"
+         data-signals='{"count": 0, "inputValue": 0, "lastKey": "", "isFetching": false}'
+         data-computed:abscount="Math.abs($count)"
+         data-computed:parity="$count % 2 === 0 ? 'even' : 'odd'"
+         data-computed:sign="$count > 0 ? 'positive' : $count < 0 ? 'negative' : 'zero'"
+         data-init="@get('/api/counter')"
+         data-on:keydown.window="
+            if ($evt.key === '+' || $evt.key === '=') { $lastKey = '+'; @post('/api/counter/increment') }
+            else if ($evt.key === '-') { $lastKey = '-'; @post('/api/counter/decrement') }
+            else if ($evt.key === '0') { $lastKey = '0'; @post('/api/counter/reset') }
+         "
+    >
 
-        <p>Count: <span data-text="$count"></span></p>
+        <!-- Header -->
+        <header>
+            <h1>Hono + Datastar Showcase</h1>
+            <p>Datastar v1 patterns with OpenAPI content negotiation and D1 persistence</p>
+            <div class="stack">
+                <span class="badge">Hono</span>
+                <span class="badge">Datastar v1 RC.7</span>
+                <span class="badge">Cloudflare D1</span>
+                <span class="badge">Workers</span>
+                <span class="badge">OpenAPI 3.1</span>
+            </div>
+        </header>
 
-        <button data-on:click="@post('/actions/counter/increment')">
-            Increment
-        </button>
+        <!-- Section 1: Counter -->
+        <section>
+            <h2>Counter
+                <span class="indicator" data-show="$isFetching"></span>
+            </h2>
+            <p class="section-desc">
+                The core counter backed by D1 (SQLite). Every action is an atomic SQL update.
+                <br>
+                <span class="pattern-tag">data-signals</span>
+                <span class="pattern-tag">data-text</span>
+                <span class="pattern-tag">data-on:click</span>
+                <span class="pattern-tag">data-init</span>
+                <span class="pattern-tag">data-class</span>
+                <span class="pattern-tag">data-indicator</span>
+                <span class="pattern-tag">data-attr</span>
+            </p>
 
-        <button data-on:click="@post('/actions/counter/decrement')">
-            Decrement
-        </button>
+            <div class="count"
+                 data-text="$count"
+                 data-class:positive="$count > 0"
+                 data-class:negative="$count < 0"
+                 data-class:zero="$count === 0"
+            ></div>
 
-        <p><a href="/ui">Swagger UI</a></p>
+            <div class="buttons">
+                <button data-on:click="@post('/api/counter/decrement')"
+                        data-attr:disabled="$isFetching">
+                    &minus; Decrement
+                </button>
+                <button data-on:click="@post('/api/counter/increment')"
+                        data-attr:disabled="$isFetching">
+                    + Increment
+                </button>
+            </div>
+        </section>
+
+        <!-- Section 2: Conditional Messages -->
+        <section>
+            <h2>Conditional Messages</h2>
+            <p class="section-desc">
+                Messages appear and disappear reactively based on the counter value. No JavaScript — just declarative attributes.
+                <br>
+                <span class="pattern-tag">data-show</span>
+            </p>
+
+            <div class="message green" data-show="$count > 0">
+                Counter is positive
+            </div>
+            <div class="message red" data-show="$count < 0">
+                Counter is negative
+            </div>
+            <div class="message gray" data-show="$count === 0">
+                Counter is zero
+            </div>
+            <div class="message blue" data-show="$count % 2 === 0">
+                Even number
+            </div>
+        </section>
+
+        <!-- Section 3: Computed Values -->
+        <section>
+            <h2>Computed Values</h2>
+            <p class="section-desc">
+                Derived signals computed from the counter. These update automatically whenever the source signal changes.
+                <br>
+                <span class="pattern-tag">data-computed</span>
+            </p>
+
+            <div class="values-grid">
+                <div class="value-card">
+                    <div class="label">Absolute</div>
+                    <div class="value" data-text="$abscount"></div>
+                </div>
+                <div class="value-card">
+                    <div class="label">Parity</div>
+                    <div class="value" data-text="$parity"></div>
+                </div>
+                <div class="value-card">
+                    <div class="label">Sign</div>
+                    <div class="value" data-text="$sign"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 4: Set Value -->
+        <section>
+            <h2>Set Value</h2>
+            <p class="section-desc">
+                Two-way data binding between the input field and a signal. The POST sends all signals as JSON; the OpenAPI schema validates and extracts <code>inputValue</code>.
+                <br>
+                <span class="pattern-tag">data-bind</span>
+            </p>
+
+            <div class="set-value-row">
+                <input type="number" data-bind="inputValue" placeholder="0">
+                <button data-on:click="@post('/api/counter/set')">
+                    Set Counter
+                </button>
+            </div>
+        </section>
+
+        <!-- Section 5: Keyboard Shortcuts -->
+        <section>
+            <h2>Keyboard Shortcuts</h2>
+            <p class="section-desc">
+                Global keyboard listeners bound via Datastar — no <code>addEventListener</code> needed. Works from anywhere on the page.
+                <br>
+                <span class="pattern-tag">data-on:keydown.window</span>
+            </p>
+
+            <div class="shortcut-list">
+                <span class="shortcut-item"><kbd>+</kbd> Increment</span>
+                <span class="shortcut-item"><kbd>-</kbd> Decrement</span>
+                <span class="shortcut-item"><kbd>0</kbd> Reset</span>
+            </div>
+
+            <div style="text-align: center; font-size: 0.85rem; color: #94a3b8;">
+                Last key: <strong data-text="$lastKey || 'none'"></strong>
+            </div>
+        </section>
+
+        <!-- Section 6: Server Fragment -->
+        <section>
+            <h2>Server Fragment</h2>
+            <p class="section-desc">
+                The server renders HTML and sends it via SSE <code>datastar-patch-elements</code>. Datastar patches it into the DOM using Idiomorph — no client-side templating.
+                <br>
+                <span class="pattern-tag">datastar-patch-elements</span>
+            </p>
+
+            <div class="fragment-box" id="server-fragment">
+                <span style="color: #64748b; font-size: 0.85rem;">Click to load server-rendered fragment</span>
+            </div>
+            <div class="buttons" style="margin-top: 12px;">
+                <button data-on:click="@get('/api/counter/fragment')">
+                    Load Fragment
+                </button>
+            </div>
+        </section>
+
+        <!-- Section 7: Side Effects -->
+        <section>
+            <h2>Side Effects</h2>
+            <p class="section-desc">
+                The <code>data-effect</code> attribute runs arbitrary JS whenever its dependencies change. Here it updates the page title reactively.
+                <br>
+                <span class="pattern-tag">data-effect</span>
+            </p>
+
+            <div data-effect="document.title = `Count: ${$count} | Hono + Datastar`"></div>
+
+            <div style="text-align: center; font-size: 0.85rem; color: #94a3b8;">
+                Check your browser tab — the title updates with the count.
+            </div>
+        </section>
+
+        <!-- Footer links -->
+        <div class="links">
+            <a href="/ui">API Docs</a>
+            <a href="/api/doc">OpenAPI Spec</a>
+            <a href="/api/counter">API JSON</a>
+        </div>
+
     </div>
 </body>
 </html>

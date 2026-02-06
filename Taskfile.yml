@@ -15,9 +15,9 @@ version: '3'
 # All tasks are idempotent — safe to run multiple times.
 #
 # Architecture notes:
-#   - Workers CANNOT share I/O objects between requests (no persistent SSE broadcast)
-#   - Module-level state works locally (single process) but is per-isolate in production
-#   - For production shared state, use Workers KV or Durable Objects
+#   - Counter state stored in D1 (Cloudflare's SQLite) for durability
+#   - Atomic increment/decrement via UPDATE ... RETURNING
+#   - Local dev uses miniflare's built-in local SQLite (automatic)
 #   - Static files served via [assets] in wrangler.toml (NOT [site])
 
 # Ensure ~/.bun/bin is on PATH so freshly-installed Bun is found immediately
@@ -56,6 +56,7 @@ tasks:
           exit 0
         fi
         mkdir -p .wrangler
+        bunx wrangler d1 migrations apply test-hono-db --local
         bun run dev > {{.LOG_FILE}} 2>&1 &
         for i in $(seq 1 15); do
           curl -s -o /dev/null -w '' {{.LOCAL_URL}}/ 2>/dev/null && break
@@ -77,6 +78,7 @@ tasks:
       - sleep 1
       - |
         mkdir -p .wrangler
+        bunx wrangler d1 migrations apply test-hono-db --local
         bun run dev > {{.LOG_FILE}} 2>&1 &
         for i in $(seq 1 15); do
           curl -s -o /dev/null -w '' {{.LOCAL_URL}}/ 2>/dev/null && break
@@ -101,10 +103,6 @@ tasks:
   test:deployed:
     desc: "Runs e2e tests against the deployed worker ({{.DEPLOYED_URL}})"
     summary: |
-      NOTE: Counter state is per-isolate in production. Multi-tab and
-      sequential tests may see inconsistent counts across isolates.
-      Use Workers KV or Durable Objects for production-grade state.
-
       Usage:
         task test:deployed                              # uses DEPLOYED_URL from Taskfile
         task test:deployed -- https://your.workers.dev  # override with explicit URL
@@ -128,8 +126,9 @@ tasks:
     silent: true
 
   deploy:
-    desc: "Deploys the worker to Cloudflare"
+    desc: "Deploys the worker to Cloudflare (runs remote migrations first)"
     cmds:
+      - bunx wrangler d1 migrations apply test-hono-db --remote
       - bun run deploy
 
   ci:secrets:
@@ -182,6 +181,26 @@ tasks:
         echo "  CLOUDFLARE_API_TOKEN  = (hidden)"
         echo ""
         echo "CI will now auto-deploy on push to main."
+    silent: true
+
+  # --- Database ---
+
+  db:create:
+    desc: "Creates the D1 database on Cloudflare (one-time setup)"
+    cmds:
+      - bunx wrangler d1 create test-hono-db
+    silent: true
+
+  db:migrate:
+    desc: "Applies D1 migrations locally"
+    cmds:
+      - bunx wrangler d1 migrations apply test-hono-db --local
+    silent: true
+
+  db:migrate:remote:
+    desc: "Applies D1 migrations to the remote database"
+    cmds:
+      - bunx wrangler d1 migrations apply test-hono-db --remote
     silent: true
 
   # --- Setup ---

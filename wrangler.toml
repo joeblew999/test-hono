@@ -4,3 +4,9 @@ compatibility_date = "2024-02-06"
 
 [assets]
 directory = "./static"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "test-hono-db"
+database_id = "7a6525f8-fbef-461d-a9ee-0d974a82e3ed"
+migrations_dir = "migrations"
