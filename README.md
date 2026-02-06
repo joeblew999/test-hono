@@ -5,6 +5,7 @@ Hono + Datastar pattern showcase — dual-mode deployment to Cloudflare Workers 
 **repo** https://github.com/joeblew999/test-hono
 
 **Cloudflare Workers:** https://test-hono.gedw99.workers.dev
+
 **Fly.io (persistent SSE):** https://test-hono-bun.fly.dev
 
 [![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/joeblew999/test-hono)
@@ -250,6 +251,48 @@ Taskfile.yml      # All dev/test/deploy commands
 - [w3cj/hono-open-api-starter](https://github.com/w3cj/hono-open-api-starter) — Hono + Drizzle + Zod OpenAPI + Scalar starter (the community template)
 - [w3cj/hono-node-deployment-examples](https://github.com/w3cj/hono-node-deployment-examples) — deploying Hono to Fly.io, Vercel, Cloudflare, etc.
 - [superfly/corrosion](https://github.com/superfly/corrosion) — SQLite + CRDT replication + query subscriptions (the next step for multi-node real-time)
+
+## FAQ
+
+**Q: If I hit the API via Scalar "Try It" or curl, does the browser UI update?**
+
+Yes (on Fly.io). API clients get JSON back (`Accept: application/json`), but the mutation still calls `bc?.broadcast()`, which pushes the new count to every open Datastar SSE connection. So `curl -X POST /api/counter/increment` returns `{"count": 3}` to the caller AND instantly updates all browser tabs. On Workers, the UI updates on its next action (one-shot SSE).
+
+**Q: What's the difference between one-shot SSE and persistent SSE?**
+
+One-shot (Workers): the server sends SSE events and closes the connection immediately. The browser gets the response and is done — it only sees new data when it makes another request (e.g. clicking increment). Persistent (Fly.io): the `GET /api/counter` connection stays open. The server pushes events whenever any client mutates the counter. Tabs sync in real-time without any user action.
+
+**Q: Why can't Cloudflare Workers do persistent SSE?**
+
+Workers are ephemeral isolates — they can't share I/O objects (like SSE streams) between request handlers. A POST from Tab A can't write to a stream opened by Tab B's GET. There's no module-level state that persists reliably across requests in production. Fly.io runs long-lived VMs where an in-process `Set<Listener>` works fine.
+
+**Q: Why SSE instead of WebSockets?**
+
+Datastar chose SSE as its wire format because it supports multiplexing — signals AND DOM fragments in one response via different event types (`datastar-patch-signals`, `datastar-patch-elements`). SSE also works through HTTP/2, requires no upgrade handshake, and reconnects automatically. For this project, SSE means the same response format works for both one-shot (Workers) and persistent (Fly.io) modes.
+
+**Q: How does the D1 adapter work? Isn't bun:sqlite synchronous?**
+
+Yes, bun:sqlite is synchronous. The adapter (`db.ts`) wraps synchronous calls to match D1's async interface — `stmt.get()` becomes `Promise.resolve(stmt.get())` behind `async first<T>()`. Since `queries.ts` uses `await db.prepare(sql).bind(v).first<T>()`, and awaiting an already-resolved promise is essentially free, the adapter adds zero overhead while keeping queries.ts unchanged across both platforms.
+
+**Q: Can I add more tables/queries?**
+
+Yes. Add migrations in `migrations/`, update `queries.ts` with new D1-typed functions, and add routes in `api.ts`. The same code runs on both platforms. For Bun mode, also add the `CREATE TABLE` statement in `db.ts`'s `initDB()` function (it runs inline migrations on startup).
+
+**Q: How do I scale Fly.io beyond a single node?**
+
+The current broadcast uses an in-process `Set<Listener>` — it works perfectly for a single VM. For multi-node, replace the in-process pub/sub with [Corrosion](https://github.com/superfly/corrosion) (SQLite + CRDT replication + query subscriptions). Subscribe to a SQL query, get pushed updates when the data changes across any node. The Datastar frontend stays identical — it already expects SSE.
+
+**Q: Do I need both platforms? Can I use just one?**
+
+Absolutely. Use Workers-only if you want serverless with zero infrastructure. Use Fly.io-only if you want persistent SSE and real-time broadcast. The dual-mode exists to show that the same codebase supports both — pick whichever fits your use case.
+
+**Q: Why Datastar instead of React/Vue/Svelte?**
+
+Zero build step. The frontend is a single HTML file with declarative attributes. No JSX, no virtual DOM, no bundler, no node_modules for the frontend. Datastar makes HTML reactive through attributes like `data-text`, `data-on:click`, `data-show`. The server sends SSE events, Datastar patches the DOM. The entire frontend weighs ~14KB (self-hosted JS).
+
+**Q: Why is Datastar self-hosted instead of using a CDN?**
+
+Version pinning. Datastar v1 RC.7 (Dec 2025) is a GitHub-only release — it's not on npm (npm latest is beta.11, which has a completely different API). Self-hosting `/static/datastar.js` ensures the frontend and backend always agree on the SSE event format. No CDN cache surprises, no version mismatches.
 
 ## Architecture Notes
 
