@@ -119,12 +119,12 @@ tasks:
     desc: "Authenticates with Cloudflare (skips if already logged in)"
     cmds:
       - |
-        if npx wrangler whoami &>/dev/null; then
+        if bunx wrangler whoami &>/dev/null; then
           echo "Already authenticated with Cloudflare"
-          npx wrangler whoami
+          bunx wrangler whoami
           exit 0
         fi
-        npx wrangler login
+        bunx wrangler login
     silent: true
 
   deploy:
