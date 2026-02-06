@@ -15,6 +15,11 @@ jobs:
 
       - uses: arduino/setup-task@v2
 
+      - name: Install Bun
+        run: |
+          task bun:install
+          echo "$HOME/.bun/bin" >> "$GITHUB_PATH"
+
       - name: Install dependencies
         run: task deps
 
