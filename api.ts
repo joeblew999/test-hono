@@ -6,6 +6,12 @@ type Bindings = {
   DB: D1Database
 }
 
+// Optional broadcast for persistent SSE (Bun/Fly.io mode)
+export type BroadcastConfig = {
+  subscribe: (listener: (data: { count: number }) => void) => () => void
+  broadcast: (data: { count: number }) => void
+}
+
 const CounterSchema = z.object({
   count: z.number().int().openapi({
     example: 1,
@@ -170,27 +176,54 @@ const resetRoute = createRoute({
   },
 })
 
-export default () => {
+export default (bc?: BroadcastConfig) => {
   const app = new OpenAPIHono<{ Bindings: Bindings }>()
 
   app.openapi(getCounterRoute, async (c) => {
     const count = await getCount(c.env.DB)
+
+    // Persistent SSE mode: subscribe to broadcasts and keep alive
+    if (bc?.subscribe && c.req.header('accept')?.includes('text/event-stream')) {
+      return streamSSE(c, async (stream) => {
+        await stream.writeSSE({
+          data: `signals ${JSON.stringify({ count })}`,
+          event: 'datastar-patch-signals',
+        })
+        const unsubscribe = bc.subscribe(async (data) => {
+          try {
+            await stream.writeSSE({
+              data: `signals ${JSON.stringify(data)}`,
+              event: 'datastar-patch-signals',
+            })
+          } catch {
+            unsubscribe()
+          }
+        })
+        await new Promise<void>((resolve) => {
+          stream.onAbort(() => { unsubscribe(); resolve() })
+        })
+      })
+    }
+
     return respond(c, { count })
   })
 
   app.openapi(incrementRoute, async (c) => {
     const count = await increment(c.env.DB)
+    bc?.broadcast({ count })
     return respond(c, { count })
   })
 
   app.openapi(decrementRoute, async (c) => {
     const count = await decrement(c.env.DB)
+    bc?.broadcast({ count })
     return respond(c, { count })
   })
 
   app.openapi(setCountRoute, async (c) => {
     const { inputValue } = c.req.valid('json')
     const count = await setCount(c.env.DB, inputValue)
+    bc?.broadcast({ count })
     return respond(c, { count })
   })
 
@@ -203,6 +236,7 @@ export default () => {
 
   app.openapi(resetRoute, async (c) => {
     await resetCount(c.env.DB)
+    bc?.broadcast({ count: 0 })
     return respond(c, { count: 0 })
   })
 

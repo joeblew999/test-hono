@@ -40,3 +40,6 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 # playwright
 test-results/
 .playwright-mcp/
+
+# bun:sqlite local data
+data/

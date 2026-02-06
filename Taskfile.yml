@@ -226,3 +226,90 @@ tasks:
         export PATH="$HOME/.bun/bin:$PATH"
         bun install
         bunx playwright install --with-deps chromium
+
+  # --- Fly.io (Bun + SQLite + Persistent SSE) ---
+
+  fly:dev:
+    desc: "Starts the Bun server locally (port 3000, persistent SSE)"
+    cmds:
+      - mkdir -p data
+      - bun run server.ts
+    env:
+      DB_PATH: ./data/counter.db
+      PORT: "3000"
+
+  fly:start:
+    desc: "Starts the Bun server in background (port 3000)"
+    vars:
+      FLY_URL: http://localhost:3000
+    cmds:
+      - |
+        if curl -s -o /dev/null -w '' {{.FLY_URL}}/ 2>/dev/null; then
+          echo "Bun server already running at {{.FLY_URL}}"
+          exit 0
+        fi
+        mkdir -p data
+        DB_PATH=./data/counter.db PORT=3000 bun run server.ts > .wrangler/bun.log 2>&1 &
+        for i in $(seq 1 15); do
+          curl -s -o /dev/null -w '' {{.FLY_URL}}/ 2>/dev/null && break
+          sleep 1
+        done
+        echo "Bun server ready at {{.FLY_URL}}"
+    silent: true
+
+  fly:stop:
+    desc: "Stops the Bun server"
+    cmds:
+      - pkill -f "bun run server.ts" || true
+    silent: true
+
+  fly:test:
+    desc: "Runs Playwright e2e tests against local Bun server (port 3000)"
+    cmds:
+      - task: fly:start
+      - BASE_URL=http://localhost:3000 bun run test
+
+  fly:test:deployed:
+    desc: "Runs e2e tests against deployed Fly.io app"
+    vars:
+      FLY_APP_URL: '{{.FLY_APP_URL | default "https://test-hono-bun.fly.dev"}}'
+    cmds:
+      - echo "Testing against {{if .CLI_ARGS}}{{.CLI_ARGS}}{{else}}{{.FLY_APP_URL}}{{end}}"
+      - BASE_URL={{if .CLI_ARGS}}{{.CLI_ARGS}}{{else}}{{.FLY_APP_URL}}{{end}} bun run test
+
+  fly:login:
+    desc: "Authenticates with Fly.io (skips if already logged in)"
+    cmds:
+      - |
+        if fly auth whoami &>/dev/null; then
+          echo "Already authenticated with Fly.io"
+          fly auth whoami
+          exit 0
+        fi
+        fly auth login
+    silent: true
+
+  fly:launch:
+    desc: "Creates Fly.io app + volume (one-time setup, idempotent)"
+    cmds:
+      - |
+        if fly apps list --json 2>/dev/null | grep -q '"test-hono-bun"'; then
+          echo "App test-hono-bun already exists"
+        else
+          fly apps create test-hono-bun
+          echo "Created app test-hono-bun"
+        fi
+      - |
+        if fly volumes list --json 2>/dev/null | grep -q '"name":"data"'; then
+          echo "Volume 'data' already exists"
+        else
+          fly volumes create data --region sjc --size 1 --yes
+          echo "Created volume 'data'"
+        fi
+    silent: true
+
+  fly:deploy:
+    desc: "Deploys to Fly.io (creates app + volume if needed)"
+    cmds:
+      - task: fly:launch
+      - fly deploy
