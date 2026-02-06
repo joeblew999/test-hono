@@ -3,27 +3,32 @@ import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const SCREENSHOTS_DIR = resolve(__dirname, '../docs/screenshots');
+const BASE_DIR = resolve(__dirname, '../docs/screenshots');
 
 test.describe.configure({ mode: 'serial' });
 
-test.beforeAll(async ({ request }) => {
-  // Reset to clean state for screenshots
+function screenshotDir(testInfo: { project: { name: string } }) {
+  return resolve(BASE_DIR, testInfo.project.name);
+}
+
+test.beforeEach(async ({ request }) => {
   await request.post('/api/counter/reset');
   await request.post('/api/notes/reset');
 });
 
-test('screenshot: full page at zero', async ({ page }) => {
+test('screenshot: full page at zero', async ({ page }, testInfo) => {
+  const dir = screenshotDir(testInfo);
   await page.goto('/');
-  await page.waitForTimeout(1500); // let data-init load + clock tick
+  await page.waitForTimeout(1500);
 
   await page.screenshot({
-    path: `${SCREENSHOTS_DIR}/full-page.png`,
+    path: `${dir}/full-page.png`,
     fullPage: true,
   });
 });
 
-test('screenshot: counter positive', async ({ page }) => {
+test('screenshot: counter positive', async ({ page }, testInfo) => {
+  const dir = screenshotDir(testInfo);
   await page.goto('/');
   const inc = page.getByRole('button', { name: 'Increment' });
   await inc.click();
@@ -31,16 +36,16 @@ test('screenshot: counter positive', async ({ page }) => {
   await inc.click();
   await inc.click();
   await inc.click();
-  // Wait for SSE response
   await expect(page.locator('[data-text="$count"]')).toHaveText('5', { timeout: 5000 });
 
   await page.screenshot({
-    path: `${SCREENSHOTS_DIR}/counter-positive.png`,
+    path: `${dir}/counter-positive.png`,
     fullPage: true,
   });
 });
 
-test('screenshot: notes with items', async ({ page }) => {
+test('screenshot: notes with items', async ({ page }, testInfo) => {
+  const dir = screenshotDir(testInfo);
   await page.goto('/');
   await expect(page.locator('#notes-list')).toContainText('No notes yet', { timeout: 5000 });
 
@@ -59,23 +64,22 @@ test('screenshot: notes with items', async ({ page }) => {
   await addBtn.click();
   await expect(page.locator('.note-item')).toHaveCount(3, { timeout: 5000 });
 
-  // Scroll notes section into view
   await page.locator('#notes-list').scrollIntoViewIfNeeded();
   await page.waitForTimeout(500);
 
   await page.screenshot({
-    path: `${SCREENSHOTS_DIR}/notes-crud.png`,
+    path: `${dir}/notes-crud.png`,
     fullPage: true,
   });
 });
 
-test('screenshot: hero section (cropped)', async ({ page }) => {
+test('screenshot: hero section (cropped)', async ({ page }, testInfo) => {
+  const dir = screenshotDir(testInfo);
   await page.goto('/');
   await page.waitForTimeout(1500);
 
-  // Crop to just the header + counter section
   const header = page.locator('header');
   await header.screenshot({
-    path: `${SCREENSHOTS_DIR}/hero.png`,
+    path: `${dir}/hero.png`,
   });
 });

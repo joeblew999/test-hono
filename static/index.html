@@ -15,7 +15,7 @@
             line-height: 1.6;
         }
         .container {
-            max-width: 720px;
+            max-width: 900px;
             margin: 0 auto;
             padding: 48px 24px;
         }
@@ -51,6 +51,20 @@
             border: 1px solid #334155;
         }
 
+        /* Group labels */
+        .group-label {
+            font-size: 0.65rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: #475569;
+            margin: 40px 0 16px;
+            padding-left: 4px;
+        }
+        .group-label:first-of-type {
+            margin-top: 0;
+        }
+
         /* Sections */
         section {
             background: #1e293b;
@@ -82,6 +96,29 @@
             border: 1px solid #334155;
             margin-right: 4px;
             margin-bottom: 4px;
+        }
+
+        /* Sub-sections within a card */
+        .sub-heading {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-top: 24px;
+            margin-bottom: 12px;
+            padding-top: 20px;
+            border-top: 1px solid #334155;
+        }
+
+        /* 2-column grid */
+        .grid-2col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+        @media (max-width: 640px) {
+            .grid-2col { grid-template-columns: 1fr; }
         }
 
         /* Counter */
@@ -138,46 +175,6 @@
             50% { opacity: 0.3; }
         }
 
-        /* Messages */
-        .message {
-            padding: 8px 12px;
-            border-radius: 6px;
-            font-size: 0.85rem;
-            margin-bottom: 8px;
-            border-left: 3px solid;
-        }
-        .message.green { background: #052e16; border-color: #4ade80; color: #86efac; }
-        .message.red { background: #2a0a0a; border-color: #f87171; color: #fca5a5; }
-        .message.blue { background: #0c1a3a; border-color: #60a5fa; color: #93c5fd; }
-        .message.gray { background: #1a1a2e; border-color: #64748b; color: #94a3b8; }
-
-        /* Values grid */
-        .values-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-            gap: 12px;
-        }
-        .value-card {
-            background: #0f172a;
-            border: 1px solid #334155;
-            border-radius: 8px;
-            padding: 12px;
-            text-align: center;
-        }
-        .value-card .label {
-            font-size: 0.7rem;
-            color: #64748b;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-bottom: 4px;
-        }
-        .value-card .value {
-            font-size: 1.5rem;
-            font-weight: 600;
-            color: #f8fafc;
-            font-variant-numeric: tabular-nums;
-        }
-
         /* Set value input */
         .set-value-row {
             display: flex;
@@ -201,7 +198,7 @@
             border-color: #818cf8;
         }
 
-        /* Keyboard */
+        /* Keyboard hints */
         kbd {
             display: inline-block;
             font-family: ui-monospace, monospace;
@@ -217,11 +214,75 @@
             gap: 24px;
             justify-content: center;
             flex-wrap: wrap;
-            margin-bottom: 12px;
         }
         .shortcut-item {
             font-size: 0.85rem;
             color: #94a3b8;
+        }
+
+        /* Messages */
+        .message {
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            margin-bottom: 8px;
+            border-left: 3px solid;
+        }
+        .message:last-child { margin-bottom: 0; }
+        .message.green { background: #052e16; border-color: #4ade80; color: #86efac; }
+        .message.red { background: #2a0a0a; border-color: #f87171; color: #fca5a5; }
+        .message.blue { background: #0c1a3a; border-color: #60a5fa; color: #93c5fd; }
+        .message.gray { background: #1a1a2e; border-color: #64748b; color: #94a3b8; }
+
+        /* Values grid */
+        .values-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+        @media (max-width: 640px) {
+            .values-grid { grid-template-columns: 1fr; }
+        }
+        .value-card {
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+        }
+        .value-card .label {
+            font-size: 0.7rem;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 4px;
+        }
+        .value-card .value {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #f8fafc;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* Progress bar */
+        .bar-track {
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            height: 32px;
+            overflow: hidden;
+        }
+        .bar-fill {
+            height: 100%;
+            border-radius: 7px;
+            transition: width 0.3s, background-color 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #f8fafc;
+            min-width: 24px;
         }
 
         /* Server fragment */
@@ -301,27 +362,6 @@
             font-size: 0.85rem;
         }
 
-        /* Progress bar */
-        .bar-track {
-            background: #0f172a;
-            border: 1px solid #334155;
-            border-radius: 8px;
-            height: 32px;
-            overflow: hidden;
-        }
-        .bar-fill {
-            height: 100%;
-            border-radius: 7px;
-            transition: width 0.3s, background-color 0.3s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.75rem;
-            font-weight: 600;
-            color: #f8fafc;
-            min-width: 24px;
-        }
-
         /* Clock */
         .clock-display {
             font-size: 2.5rem;
@@ -379,16 +419,6 @@
             line-height: 1.5;
         }
 
-        /* Lazy section */
-        .lazy-box {
-            background: #0f172a;
-            border: 1px solid #334155;
-            border-radius: 8px;
-            padding: 16px;
-            text-align: center;
-            min-height: 48px;
-        }
-
         /* Links */
         .links {
             display: flex;
@@ -432,7 +462,12 @@
             </div>
         </header>
 
-        <!-- Section 1: Counter -->
+        <!-- ═══════════════════════════════════════ -->
+        <!--  GROUP 1: COUNTER                       -->
+        <!-- ═══════════════════════════════════════ -->
+        <div class="group-label">Counter</div>
+
+        <!-- Counter: main display + controls -->
         <section>
             <h2>Counter
                 <span class="indicator" data-show="$isFetching"></span>
@@ -447,6 +482,8 @@
                 <span class="pattern-tag">data-class</span>
                 <span class="pattern-tag">data-show</span>
                 <span class="pattern-tag">data-attr</span>
+                <span class="pattern-tag">data-bind</span>
+                <span class="pattern-tag">data-on:keydown.window</span>
             </p>
 
             <div class="count"
@@ -466,40 +503,40 @@
                     + Increment
                 </button>
             </div>
-        </section>
 
-        <!-- Section 2: Conditional Messages -->
-        <section>
-            <h2>Conditional Messages</h2>
-            <p class="section-desc">
-                Messages appear and disappear reactively based on the counter value. No JavaScript — just declarative attributes.
-                <br>
-                <span class="pattern-tag">data-show</span>
-            </p>
+            <!-- Set Value -->
+            <div class="sub-heading">Set Value</div>
+            <div class="set-value-row">
+                <input type="number" data-bind="inputValue" placeholder="0">
+                <button data-on:click="@post('/api/counter/set')">
+                    Set Counter
+                </button>
+            </div>
 
-            <div class="message green" data-show="$count > 0">
-                Counter is positive
+            <!-- Keyboard Shortcuts -->
+            <div class="sub-heading">Keyboard Shortcuts</div>
+            <div class="shortcut-list">
+                <span class="shortcut-item"><kbd>+</kbd> Increment</span>
+                <span class="shortcut-item"><kbd>-</kbd> Decrement</span>
+                <span class="shortcut-item"><kbd>0</kbd> Reset</span>
             </div>
-            <div class="message red" data-show="$count < 0">
-                Counter is negative
-            </div>
-            <div class="message gray" data-show="$count === 0">
-                Counter is zero
-            </div>
-            <div class="message blue" data-show="$count % 2 === 0">
-                Even number
+            <div style="text-align: center; font-size: 0.85rem; color: #94a3b8; margin-top: 8px;">
+                Last key: <strong data-text="$lastKey || 'none'"></strong>
             </div>
         </section>
 
-        <!-- Section 3: Computed Values -->
+        <!-- Counter Insights: computed + messages + reactive bar -->
         <section>
-            <h2>Computed Values</h2>
+            <h2>Counter Insights</h2>
             <p class="section-desc">
-                Derived signals computed from the counter. These update automatically whenever the source signal changes.
+                Derived values, conditional messages, and reactive styles — all driven by the counter signal.
                 <br>
                 <span class="pattern-tag">data-computed</span>
+                <span class="pattern-tag">data-show</span>
+                <span class="pattern-tag">data-style</span>
             </p>
 
+            <!-- Computed Values -->
             <div class="values-grid">
                 <div class="value-card">
                     <div class="label">Absolute</div>
@@ -514,135 +551,24 @@
                     <div class="value" data-text="$sign"></div>
                 </div>
             </div>
-        </section>
 
-        <!-- Section 4: Set Value -->
-        <section>
-            <h2>Set Value</h2>
-            <p class="section-desc">
-                Two-way data binding between the input field and a signal. The POST sends all signals as JSON; the OpenAPI schema validates and extracts <code>inputValue</code>.
-                <br>
-                <span class="pattern-tag">data-bind</span>
-            </p>
-
-            <div class="set-value-row">
-                <input type="number" data-bind="inputValue" placeholder="0">
-                <button data-on:click="@post('/api/counter/set')">
-                    Set Counter
-                </button>
+            <!-- Conditional Messages -->
+            <div class="sub-heading">Messages</div>
+            <div class="message green" data-show="$count > 0">
+                Counter is positive
             </div>
-        </section>
-
-        <!-- Section 5: Keyboard Shortcuts -->
-        <section>
-            <h2>Keyboard Shortcuts</h2>
-            <p class="section-desc">
-                Global keyboard listeners bound via Datastar — no <code>addEventListener</code> needed. Works from anywhere on the page.
-                <br>
-                <span class="pattern-tag">data-on:keydown.window</span>
-            </p>
-
-            <div class="shortcut-list">
-                <span class="shortcut-item"><kbd>+</kbd> Increment</span>
-                <span class="shortcut-item"><kbd>-</kbd> Decrement</span>
-                <span class="shortcut-item"><kbd>0</kbd> Reset</span>
+            <div class="message red" data-show="$count < 0">
+                Counter is negative
+            </div>
+            <div class="message gray" data-show="$count === 0">
+                Counter is zero
+            </div>
+            <div class="message blue" data-show="$count % 2 === 0">
+                Even number
             </div>
 
-            <div style="text-align: center; font-size: 0.85rem; color: #94a3b8;">
-                Last key: <strong data-text="$lastKey || 'none'"></strong>
-            </div>
-        </section>
-
-        <!-- Section 6: Server Fragment -->
-        <section>
-            <h2>Server Fragment</h2>
-            <p class="section-desc">
-                The server renders HTML and sends it via SSE <code>datastar-patch-elements</code>. Datastar patches it into the DOM using Idiomorph — no client-side templating.
-                <br>
-                <span class="pattern-tag">datastar-patch-elements</span>
-            </p>
-
-            <div class="fragment-box" id="server-fragment">
-                <span style="color: #64748b; font-size: 0.85rem;">Click to load server-rendered fragment</span>
-            </div>
-            <div class="buttons" style="margin-top: 12px;">
-                <button data-on:click="@get('/api/counter/fragment')">
-                    Load Fragment
-                </button>
-            </div>
-        </section>
-
-        <!-- Section 7: Side Effects -->
-        <section>
-            <h2>Side Effects</h2>
-            <p class="section-desc">
-                The <code>data-effect</code> attribute runs arbitrary JS whenever its dependencies change. Here it updates the page title reactively.
-                <br>
-                <span class="pattern-tag">data-effect</span>
-            </p>
-
-            <div data-effect="document.title = `Count: ${$count} | Hono + Datastar`"></div>
-
-            <div style="text-align: center; font-size: 0.85rem; color: #94a3b8;">
-                Check your browser tab — the title updates with the count.
-            </div>
-        </section>
-
-        <!-- Section 8: Notes CRUD -->
-        <section>
-            <h2>Notes
-                <span class="indicator" data-show="$isFetching"></span>
-            </h2>
-            <p class="section-desc">
-                Full CRUD with server-rendered list items. Form submit creates; delete button removes. Server re-renders the full list on each mutation — no client-side templating.
-                <br>
-                <span class="pattern-tag">@post</span>
-                <span class="pattern-tag">@delete</span>
-                <span class="pattern-tag">datastar-patch-elements</span>
-            </p>
-
-            <div class="notes-form">
-                <input type="text" data-bind="newNote" placeholder="Add a note...">
-                <button data-on:click="@post('/api/notes')">Add</button>
-            </div>
-
-            <ul id="notes-list" class="notes-list"
-                data-init="@get('/api/notes')">
-                <li class="note-empty">Loading...</li>
-            </ul>
-
-            <div style="text-align: center; font-size: 0.8rem; color: #64748b; margin-top: 8px;">
-                <span data-text="$noteCount"></span> notes
-            </div>
-        </section>
-
-        <!-- Section 9: Interval Timer -->
-        <section>
-            <h2>Interval Timer</h2>
-            <p class="section-desc">
-                A client-side clock that ticks every second. No server requests — pure reactive interval with automatic cleanup.
-                <br>
-                <span class="pattern-tag">data-on-interval</span>
-                <span class="pattern-tag">.duration</span>
-            </p>
-
-            <div data-init="setInterval(() => $elapsed++, 1000)">
-                <div class="clock-display" data-text="new Date().toLocaleTimeString()"></div>
-                <div class="elapsed">
-                    Page open for <strong data-text="$elapsed"></strong> seconds
-                </div>
-            </div>
-        </section>
-
-        <!-- Section 10: Reactive Styles -->
-        <section>
-            <h2>Reactive Styles</h2>
-            <p class="section-desc">
-                A progress bar driven by the counter value. Width and color update reactively via inline style expressions — no CSS classes needed.
-                <br>
-                <span class="pattern-tag">data-style</span>
-            </p>
-
+            <!-- Reactive Progress Bar -->
+            <div class="sub-heading">Progress Bar</div>
             <div class="bar-track">
                 <div class="bar-fill"
                      data-style:width="Math.min(Math.abs($count) * 10, 100) + '%'"
@@ -655,18 +581,101 @@
             </div>
         </section>
 
-        <!-- Section 11: Debounce -->
+        <!-- ═══════════════════════════════════════ -->
+        <!--  GROUP 2: NOTES                         -->
+        <!-- ═══════════════════════════════════════ -->
+        <div class="group-label">Notes</div>
+
+        <!-- Notes CRUD -->
         <section>
+            <h2>Notes
+                <span class="indicator" data-show="$isFetching"></span>
+            </h2>
+            <p class="section-desc">
+                Full CRUD with server-rendered list items. Form submit creates; delete button removes. Server re-renders the full list on each mutation — no client-side templating.
+                <br>
+                <span class="pattern-tag">@post</span>
+                <span class="pattern-tag">@delete</span>
+                <span class="pattern-tag">datastar-patch-elements</span>
+            </p>
+
+            <form class="notes-form" data-on:submit="@post('/api/notes')">
+                <input type="text" data-bind="newNote" placeholder="Add a note...">
+                <button type="submit">Add</button>
+            </form>
+
+            <ul id="notes-list" class="notes-list"
+                data-init="@get('/api/notes')">
+                <li class="note-empty">Loading...</li>
+            </ul>
+
+            <div style="text-align: center; font-size: 0.8rem; color: #64748b; margin-top: 8px;">
+                <span data-text="$noteCount"></span> notes
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════ -->
+        <!--  GROUP 3: MORE PATTERNS                 -->
+        <!-- ═══════════════════════════════════════ -->
+        <div class="group-label">More Patterns</div>
+
+        <div class="grid-2col">
+            <!-- Server Fragment + Side Effects -->
+            <section style="margin-bottom: 0;">
+                <h2>Server Fragment</h2>
+                <p class="section-desc">
+                    Server renders HTML via SSE <code>datastar-patch-elements</code>. Datastar patches it into the DOM using Idiomorph.
+                    <br>
+                    <span class="pattern-tag">datastar-patch-elements</span>
+                    <span class="pattern-tag">data-effect</span>
+                </p>
+
+                <div class="fragment-box" id="server-fragment">
+                    <span style="color: #64748b; font-size: 0.85rem;">Click to load server-rendered fragment</span>
+                </div>
+                <div class="buttons" style="margin-top: 12px;">
+                    <button data-on:click="@get('/api/counter/fragment')">
+                        Load Fragment
+                    </button>
+                </div>
+
+                <div data-effect="document.title = `Count: ${$count} | Hono + Datastar`"></div>
+                <div style="text-align: center; font-size: 0.8rem; color: #64748b; margin-top: 16px; padding-top: 16px; border-top: 1px solid #334155;">
+                    Side effect: the browser tab title updates with the count.
+                </div>
+            </section>
+
+            <!-- Interval Timer -->
+            <section style="margin-bottom: 0;">
+                <h2>Interval Timer</h2>
+                <p class="section-desc">
+                    Client-side clock that ticks every second. No server requests — pure reactive interval.
+                    <br>
+                    <span class="pattern-tag">data-on-interval</span>
+                    <span class="pattern-tag">.duration</span>
+                </p>
+
+                <div data-on-interval__duration.1s="$elapsed++">
+                    <div class="clock-display" data-text="new Date().toLocaleTimeString()"></div>
+                    <div class="elapsed">
+                        Page open for <strong data-text="$elapsed"></strong> seconds
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- Debounce (full-width below the grid) -->
+        <section style="margin-top: 24px;">
             <h2>Debounce</h2>
             <p class="section-desc">
-                The output updates 500ms after you stop typing — not on every keystroke. The <code>.debounce</code> modifier handles timing automatically.
+                Output updates 500ms after you stop typing. The <code>.debounce</code> modifier handles timing automatically.
                 <br>
                 <span class="pattern-tag">.debounce</span>
             </p>
 
             <div class="debounce-row">
                 <input type="text"
-                       data-on:input.debounce:500ms="$debouncedText = $evt.target.value"
+                       data-on:input__debounce.500ms="$debouncedText = $evt.target.value"
                        placeholder="Type something...">
                 <div class="debounce-output">
                     Debounced: <strong data-text="$debouncedText || '...'"></strong>
@@ -674,11 +683,16 @@
             </div>
         </section>
 
-        <!-- Section 12: Signal Inspector -->
+        <!-- ═══════════════════════════════════════ -->
+        <!--  GROUP 4: DEV TOOLS                     -->
+        <!-- ═══════════════════════════════════════ -->
+        <div class="group-label">Developer Tools</div>
+
+        <!-- Signal Inspector -->
         <section>
             <h2>Signal Inspector</h2>
             <p class="section-desc">
-                Live JSON dump of every signal in the store. Updates in real-time as you interact with the page — useful for debugging.
+                Live JSON dump of every signal in the store. Updates in real-time as you interact with the page.
                 <br>
                 <span class="pattern-tag">data-json-signals</span>
             </p>

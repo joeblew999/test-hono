@@ -14,9 +14,9 @@ Hono + Datastar pattern showcase — dual-mode deployment to Cloudflare Workers 
 
 [![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/joeblew999/test-hono)
 
-![Full page screenshot](docs/screenshots/full-page.png)
-
-![Notes CRUD with counter at 5](docs/screenshots/notes-crud.png)
+| Desktop | Tablet | Mobile |
+|---------|--------|--------|
+| ![Desktop](docs/screenshots/desktop/full-page.png) | ![Tablet](docs/screenshots/tablet/full-page.png) | ![Mobile](docs/screenshots/mobile/full-page.png) |
 
 ## Stack
 
@@ -154,7 +154,7 @@ task fly:login  # authenticate with Fly.io
 task fly:launch # create Fly.io app + volume (idempotent)
 
 # Screenshots & setup
-task screenshots    # capture headed screenshots to docs/screenshots/
+task screenshots    # capture screenshots at 3 viewports (mobile/tablet/desktop)
 task db:create      # create remote D1 database (one-time)
 task db:migrate     # apply migrations locally
 task db:migrate:remote  # apply migrations to remote database
@@ -178,7 +178,7 @@ After that, every push to `main` auto-deploys via GitHub Actions.
 
 ## Datastar Patterns Showcased
 
-The index page demonstrates 20 Datastar v1 patterns across 12 sections (counter, notes CRUD, interval timer, reactive styles, debounce, signal inspector):
+The index page demonstrates 20 Datastar v1 patterns across 8 sections grouped into 4 categories (Counter, Notes, More Patterns, Developer Tools):
 
 | Pattern | Description |
 |---------|-------------|
@@ -255,7 +255,7 @@ queries.ts        # Shared D1-typed SQL queries
 db.ts             # bun:sqlite → D1 adapter (Bun mode only)
 docs.ts           # OpenAPI doc + Scalar mount helper
 static/
-  index.html      # Datastar frontend (12 sections, 20 patterns)
+  index.html      # Datastar frontend (8 sections, 20 patterns, responsive)
   datastar.js     # Self-hosted Datastar v1 RC.7
   datastar.js.map # Source map for browser debugging
 tests/
@@ -263,7 +263,10 @@ tests/
   notes.spec.ts       # 6 notes/demo e2e tests
   screenshots.spec.ts # headed screenshot capture
 docs/
-  screenshots/        # auto-generated screenshots (task screenshots)
+  screenshots/        # auto-generated (task screenshots)
+    mobile/           #   375×812 viewport
+    tablet/           #   768×1024 viewport
+    desktop/          #   1280×800 viewport
 migrations/
   0001_init.sql   # Counter table (single-row pattern)
   0002_notes.sql  # Notes table
