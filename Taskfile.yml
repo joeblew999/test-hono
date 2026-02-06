@@ -3,12 +3,11 @@ version: '3'
 # Hono + Datastar on Cloudflare Workers
 #
 # Prerequisites:
-#   - bun (package manager)
-#   - task (https://taskfile.dev)
-#   - wrangler (installed via bun, authenticated via `task login`)
+#   - task (https://taskfile.dev) — the ONLY prerequisite
+#   - Bun is auto-installed by `task deps` if not present
 #
 # Quick start:
-#   task deps        # install dependencies
+#   task deps        # install Bun (if needed) + all dependencies
 #   task dev         # start dev server with live logs
 #   task test        # run e2e tests against local server
 #   task deploy      # deploy to Cloudflare Workers
@@ -20,6 +19,11 @@ version: '3'
 #   - Module-level state works locally (single process) but is per-isolate in production
 #   - For production shared state, use Workers KV or Durable Objects
 #   - Static files served via [assets] in wrangler.toml (NOT [site])
+
+# Ensure ~/.bun/bin is on PATH so freshly-installed Bun is found immediately
+env:
+  PATH:
+    sh: echo "$HOME/.bun/bin:$PATH"
 
 vars:
   LOG_FILE: .wrangler/wrangler.log
@@ -123,8 +127,22 @@ tasks:
 
   # --- Setup ---
 
+  bun:install:
+    desc: "Installs Bun if not already present"
+    cmds:
+      - |
+        if command -v bun &>/dev/null; then
+          echo "Bun $(bun --version) already installed"
+          exit 0
+        fi
+        echo "Installing Bun..."
+        curl -fsSL https://bun.sh/install | bash
+        echo "Bun installed to ~/.bun/bin/bun"
+    silent: true
+
   deps:
-    desc: "Installs all dependencies"
+    desc: "Installs Bun (if needed) and all dependencies"
+    deps: [bun:install]
     cmds:
       - bun install
       - bunx playwright install --with-deps chromium

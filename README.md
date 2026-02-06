@@ -15,10 +15,14 @@ Hono + Datastar counter app on Cloudflare Workers.
 - [Bun](https://bun.sh) — package manager
 - [Task](https://taskfile.dev) — task runner
 
+## Prerequisites
+
+Just install [Task](https://taskfile.dev) — everything else (Bun, npm packages, Playwright) is handled by `task deps`.
+
 ## Quick Start
 
 ```sh
-task deps       # install dependencies + playwright browsers
+task deps       # install Bun (if needed) + all dependencies
 task dev        # start dev server with live logs
 ```
 
@@ -35,7 +39,7 @@ task test       # run e2e tests (auto-starts server)
 task deploy     # deploy to Cloudflare Workers
 task test:deployed  # run e2e tests against deployed worker
 task login      # authenticate with Cloudflare
-task deps       # install dependencies
+task deps       # install Bun + all dependencies
 ```
 
 ## Design
