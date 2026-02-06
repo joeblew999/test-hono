@@ -34,6 +34,14 @@ vars:
   FLY_URL: http://localhost:3000
   FLY_LOG: .wrangler/bun.log
   FLY_DEPLOYED_URL: '{{.FLY_DEPLOYED_URL | default "https://test-hono-bun.fly.dev"}}'
+  # Corrosion Local Development
+  CORROSION_VERSION: "v1.0.0"
+  CORROSION_DOWNLOAD_URL: "https://github.com/joeblew999/binary-corrosion/releases/download/{{.CORROSION_VERSION}}/corrosion-{{.CORROSION_VERSION}}-{{.OS}}-amd64.zip"
+  CORROSION_BIN: "./bin/corrosion"
+  CORROSION_DATA_DIR: "./corrosion_data"
+  CORROSION_AGENT_URL: "http://localhost:8080"
+  CORROSION_PORT: "8080"
+  CORROSION_LOG: ".wrangler/corrosion.log"
 
 tasks:
   default:
@@ -236,6 +244,51 @@ tasks:
         bun install
         bunx playwright install --with-deps chromium
 
+  # --- Corrosion Local Development ---
+
+  corrosion:install:
+    desc: "Installs the Corrosion binary locally"
+    cmds:
+      - |
+        if command -v {{.CORROSION_BIN}} &>/dev/null; then
+          echo "Corrosion already installed at {{.CORROSION_BIN}}"
+          exit 0
+        fi
+        echo "Installing Corrosion v{{.CORROSION_VERSION}}..."
+        mkdir -p bin
+        bash scripts/install-corrosion.sh "{{.CORROSION_VERSION}}" "{{.CORROSION_DOWNLOAD_URL}}" "bin"
+        echo "Corrosion installed to {{.CORROSION_BIN}}"
+    silent: true
+
+  corrosion:start:
+    desc: "Starts the Corrosion agent in background (port {{.CORROSION_PORT}})"
+    cmds:
+      - task: corrosion:install
+      - |
+        if curl -s -o /dev/null -w '' {{.CORROSION_AGENT_URL}}/ 2>/dev/null; then
+          echo "Corrosion agent already running at {{.CORROSION_AGENT_URL}}"
+          exit 0
+        fi
+        mkdir -p {{.CORROSION_DATA_DIR}} .wrangler
+        {{.CORROSION_BIN}} -http-addr :{{.CORROSION_PORT}} -data-dir {{.CORROSION_DATA_DIR}} > {{.CORROSION_LOG}} 2>&1 &
+        for i in $(seq 1 15); do
+          curl -s -o /dev/null -w '' {{.CORROSION_AGENT_URL}}/ 2>/dev/null && break
+          sleep 1
+        done
+        echo "Corrosion agent ready at {{.CORROSION_AGENT_URL}}"
+    silent: true
+
+  corrosion:stop:
+    desc: "Stops the Corrosion agent"
+    cmds:
+      - pkill -f "{{.CORROSION_BIN}}" || true
+    silent: true
+
+  corrosion:logs:
+    desc: "Follow the Corrosion agent logs"
+    cmds:
+      - tail -f {{.CORROSION_LOG}}
+
   # --- Fly.io (Bun + SQLite + Persistent SSE) ---
 
   fly:dev:
@@ -246,6 +299,18 @@ tasks:
     env:
       DB_PATH: '{{.FLY_DB_PATH}}'
       PORT: '{{.FLY_PORT}}'
+
+  fly:dev:corrosion:
+    desc: "Starts the Bun server locally with Corrosion (port {{.FLY_PORT}}, persistent SSE)"
+    cmds:
+      - mkdir -p data
+      - bun run server.ts
+    env:
+      DB_PATH: '{{.FLY_DB_PATH}}' # Still needed for local Bun:sqlite fallback if USE_CORROSION_DB is false
+      PORT: '{{.FLY_PORT}}'
+      USE_CORROSION_DB: 'true'
+      # CORROSION_AGENT_URL is now managed by the TypeScript code
+
 
   fly:start:
     desc: "Starts the Bun server in background (port {{.FLY_PORT}})"

@@ -10,16 +10,19 @@ primary_region = 'sjc'
   # CORROSION_AGENT_URL should point to the internal HTTP address of the corrosion process.
   # Assuming corrosion listens on port 8080 by default in the same VM.
   CORROSION_AGENT_URL = 'http://localhost:8080'
+  CORROSION_GOSSIP_PORT = '7946' # Standard gossip protocol UDP port
 
 [processes]
   # Main application process
   app = 'bun run server.ts'
   # Corrosion agent process
-  # IMPORTANT: Check superfly/corrosion documentation for correct command-line arguments.
+  # IMPORTANT: These flags are based on common gossip systems.
+  # You MUST verify them against the actual documentation for your 'corrosion' binary.
   # -http-addr: Address for the HTTP API. Our app connects to this.
   # -data-dir: Directory to store its internal SQLite database and other data. Should be on a persistent volume.
-  # -join: Address of another Corrosion agent to join the cluster. This will be managed by Fly.io's internal discovery.
-  corrosion = 'corrosion -http-addr :8080 -data-dir /data/corrosion_data' # Adjust command as per Corrosion docs
+  # -gossip-port: The UDP port for the gossip protocol.
+  # -join: To discover and join other nodes in the cluster. Uses Fly.io's internal DNS.
+  corrosion = 'corrosion -http-addr :8080 -data-dir /data/corrosion_data -gossip-port :$(CORROSION_GOSSIP_PORT) -join $(FLY_APP_NAME).internal:$(CORROSION_GOSSIP_PORT)'
 
 [http_service]
   internal_port = 3000
@@ -28,6 +31,14 @@ primary_region = 'sjc'
   auto_start_machines = true
   min_machines_running = 0
   processes = ['app'] # Only the 'app' process serves HTTP traffic externally
+
+[[services]]
+  internal_port = 7946 # Gossip UDP port
+  protocol = "udp"
+  processes = ["corrosion"] # Only the 'corrosion' process uses this port
+  [[services.ports]]
+    port = 7946
+    handlers = ["udp"]
 
 [[vm]]
   memory = '256mb'

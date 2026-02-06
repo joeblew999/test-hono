@@ -1,12 +1,14 @@
 # test-hono
 
-Hono + Datastar pattern showcase — dual-mode deployment to Cloudflare Workers (one-shot SSE) and Fly.io (persistent SSE with real-time broadcast). Same codebase, same tests, same frontend.
+Hono + Datastar pattern showcase — dual-mode deployment to Cloudflare Workers (one-shot SSE) and Fly.io (persistent SSE with real-time broadcast and multi-master SQLite). Same codebase, same tests, same frontend.
 
 **repo** https://github.com/joeblew999/test-hono
 
 **Local (Workers):** http://localhost:8787 — `task dev`
 
 **Local (Bun):** http://localhost:3000 — `task fly:dev`
+
+**Local (Bun + Corrosion):** http://localhost:3000 — `task fly:dev:corrosion`
 
 **Cloudflare Workers:** https://test-hono.gedw99.workers.dev
 
@@ -24,13 +26,13 @@ Hono + Datastar pattern showcase — dual-mode deployment to Cloudflare Workers 
 - [Datastar](https://data-star.dev) v1.0.0-RC.7 — reactive frontend via SSE
 - [Cloudflare Workers](https://developers.cloudflare.com/workers/) — serverless runtime (one-shot SSE)
 - [Fly.io](https://fly.io) + [Bun](https://bun.sh) — persistent runtime (real-time SSE broadcast)
-- [Cloudflare D1](https://developers.cloudflare.com/d1/) / bun:sqlite — SQLite on both platforms
+- [Cloudflare D1](https://developers.cloudflare.com/d1/) / bun:sqlite / [superfly/corrosion](https://github.com/joeblew999/binary-corrosion) — SQLite on various platforms with multi-master capabilities
 - [Playwright](https://playwright.dev) — end-to-end tests (same 15 tests pass on all 4 targets)
 - [Task](https://taskfile.dev) — task runner
 
 ## Prerequisites
 
-Just install [Task](https://taskfile.dev) — everything else (Bun, npm packages, Playwright) is handled by `task deps`.
+Just install [Task](https://taskfile.dev) — everything else (Bun, npm packages, Playwright, Corrosion binary) is handled by `task deps` and `task corrosion:install`.
 
 ## Quick Start
 
@@ -43,16 +45,17 @@ task test       # run 15 e2e tests
 task deploy     # deploy to Cloudflare Workers
 ```
 
-### Fly.io (persistent SSE with real-time broadcast)
+### Fly.io (persistent SSE with real-time broadcast and Multi-Master SQLite)
 
 ```sh
 task deps       # install Bun (if needed) + all dependencies
-task fly:dev    # start Bun server with persistent SSE (port 3000)
+task fly:dev    # start Bun server with persistent SSE (port 3000, using bun:sqlite)
+task fly:dev:corrosion # start Bun server with persistent SSE, auto-launching local Corrosion agent (port 3000)
 task fly:test   # run same 15 e2e tests against Bun server
-task fly:deploy # deploy to Fly.io (creates app + volume if needed)
+task fly:deploy # deploy to Fly.io (creates app + volume if needed, now includes Corrosion agent)
 ```
 
-Open http://localhost:8787 (Workers) or http://localhost:3000 (Bun) for the counter UI, append `/ui` for API docs (Scalar).
+Open http://localhost:8787 (Workers), http://localhost:3000 (Bun), or http://localhost:3000 (Bun + Corrosion) for the counter UI, append `/ui` for API docs (Scalar).
 
 ## Dual-Mode Architecture
 
@@ -60,11 +63,12 @@ This project runs on **two platforms from a single codebase** — no code duplic
 
 ```
 Cloudflare Workers (index.ts)          Fly.io / Bun (server.ts)
-┌─────────────────────────┐            ┌─────────────────────────┐
-│  D1 (Cloudflare SQLite) │            │  bun:sqlite (local)     │
-│  One-shot SSE responses │            │  Persistent SSE streams │
-│  Tabs sync on action    │            │  Real-time broadcast    │
-└──────────┬──────────────┘            └──────────┬──────────────┘
+┌─────────────────────────┐            ┌─────────────────────────────┐
+│  D1 (Cloudflare SQLite) │            │  bun:sqlite (local dev)     │
+│  One-shot SSE responses │            │  Corrosion (Fly.io prod)    │
+│  Tabs sync on action    │            │  Persistent SSE streams     │
+└──────────┬──────────────┘            │  Real-time broadcast        │
+           │                           └──────────┬──────────────────┘
            │                                      │
            └──────────┬───────────────────────────┘
                       │
@@ -100,11 +104,13 @@ When broadcast is absent (Cloudflare Workers):
 
 ### The D1 adapter trick
 
-`queries.ts` is typed for Cloudflare's `D1Database` interface. Instead of rewriting queries for bun:sqlite, a thin adapter in `db.ts` makes bun:sqlite look like D1:
+`queries.ts` is typed for Cloudflare's `D1Database` interface. Instead of rewriting queries for bun:sqlite, a thin adapter in `db.ts` makes bun:sqlite look like D1. For `superfly/corrosion`, `corrosion-db.ts` provides a similar adapter pattern, allowing `queries.ts` to remain unchanged.
 
 ```ts
 // db.ts — makes bun:sqlite speak D1
 const d1 = createD1Compat(sqliteDb)
+// corrosion-db.ts — makes Corrosion HTTP API speak D1
+const d1Corrosion = createCorrosionCompat(corrosionHttpClient)
 // queries.ts works unchanged: db.prepare(sql).bind(v).first<T>()
 ```
 
@@ -130,6 +136,32 @@ Tab A                          Bun Server                      Tab B
   │   Tab A shows 1               │              Tab B shows 1   │
 ```
 
+## Desktop-to-Cloud Synchronization (Corrosion Sync Gateway)
+
+This project implements a "Sync Gateway" model to enable real-time, multi-master synchronization between local desktop clients and the deployed Fly.io `corrosion` cluster.
+
+### Architecture Overview
+
+1.  **Fly.io App as Sync Gateway:** Your deployed Hono application acts as a secure intermediary.
+2.  **Push Changes from Desktop:** Desktop clients send their local `cr-sqlite` changesets to the Fly.io app.
+3.  **Apply to Cloud Corrosion:** The Fly.io app applies these changes to its `corrosion` instance, which then gossips them across the entire Fly.io cluster.
+4.  **Pull Changes to Desktop (SSE):** The Fly.io app monitors its `corrosion` instance for all changes (local or from other nodes) and pushes them via SSE to connected desktop clients.
+
+This approach avoids complex peer-to-peer gossip over the public internet and leverages standard web communication.
+
+### Authentication
+
+The `/api/sync/changesets` endpoint uses **API Key Authentication** via the `X-API-Key` HTTP header.
+
+*   **Server Setup (Fly.io):** Set `SYNC_API_KEY` as a secret environment variable (e.g., `fly secrets set SYNC_API_KEY="your-secret-key"`).
+*   **Client Setup (Desktop):** Provide the `SYNC_API_KEY` to your local desktop client (e.g., via an environment variable `export SYNC_API_KEY="your-secret-key"`) and include it in the `X-API-Key` header of your requests.
+
+### Offline & Partition Handling
+
+Leveraging `superfly/corrosion`'s CRDT foundation:
+*   **Offline Capability:** Both desktop clients and Fly.io nodes can continue to operate and record changes when offline.
+*   **Partition Handling:** `corrosion` handles network partitions. When connectivity is restored, changes from all sides are deterministically merged without conflicts, achieving eventual consistency.
+
 ## Commands
 
 ```
@@ -145,19 +177,26 @@ task test:deployed  # run e2e tests against deployed worker (headless)
 
 # Fly.io (Bun + SQLite + persistent SSE)
 task fly:dev    # start Bun server (port 3000, persistent SSE)
+task fly:dev:corrosion # start Bun server with persistent SSE, auto-launching local Corrosion agent (port 3000)
 task fly:start  # start in background
 task fly:stop   # stop Bun server
 task fly:test   # run e2e tests headed against Bun server
-task fly:deploy # deploy to Fly.io (creates app + volume if needed)
+task fly:deploy # deploy to Fly.io (creates app + volume if needed, includes Corrosion agent)
 task fly:test:deployed  # run e2e tests against deployed Fly.io app (headless)
 task fly:login  # authenticate with Fly.io
 task fly:launch # create Fly.io app + volume (idempotent)
 
+# Corrosion Local Management
+task corrosion:install # Installs the Corrosion binary locally
+task corrosion:start   # Starts the Corrosion agent in background
+task corrosion:stop    # Stops the Corrosion agent
+task corrosion:logs    # Follow the Corrosion agent logs
+
 # Screenshots & setup
 task screenshots    # capture screenshots at 3 viewports (mobile/tablet/desktop)
 task db:create      # create remote D1 database (one-time)
-task db:migrate     # apply migrations locally
-task db:migrate:remote  # apply migrations to remote database
+task db:migrate     # apply D1 migrations locally
+task db:migrate:remote  # apply D1 migrations to the remote database
 task login          # authenticate with Cloudflare
 task ci:secrets     # set Cloudflare secrets in GitHub for CI
 task deps           # install Bun + all dependencies
@@ -235,7 +274,7 @@ The frontend is **zero-build HTML** — no JSX, no bundler, no virtual DOM. Data
 - Type-safe API via Zod OpenAPI schemas.
 - Content negotiation: same routes serve JSON (API) and SSE (Datastar).
 - Dual-mode: Cloudflare Workers (D1, one-shot SSE) and Fly.io (bun:sqlite, persistent SSE).
-- D1 adapter: bun:sqlite wrapped to match D1Database interface — zero query changes across platforms.
+- D1 adapter: bun:sqlite wrapped to match D1Database interface — zero query changes across platforms. Now also supports `superfly/corrosion` with the same adapter pattern.
 - Atomic increment/decrement using `UPDATE ... SET value = value + 1 RETURNING value`.
 - Taskfile wraps everything for ease of use (all tasks are idempotent).
 - All URLs are relative — same code runs locally and in production with no changes.
@@ -246,13 +285,16 @@ The frontend is **zero-build HTML** — no JSX, no bundler, no virtual DOM. Data
 index.ts          # Cloudflare Workers entry point
 server.ts         # Bun/Fly.io entry point (persistent SSE)
 api.ts            # Route composer (imports from routes/)
-types.ts          # Shared types: AppEnv, BroadcastConfig
+types.ts          # Shared types: AppEnv, BroadcastConfig, D1 compatibility types
 sse.ts            # Reusable SSE helpers: respond, respondFragment, respondPersistent
 routes/
   counter.ts      # Counter schemas, OpenAPI routes, handlers
   notes.ts        # Notes CRUD schemas, OpenAPI routes, handlers
 queries.ts        # Shared D1-typed SQL queries
 db.ts             # bun:sqlite → D1 adapter (Bun mode only)
+corrosion-db.ts   # superfly/corrosion HTTP API → D1 adapter
+corrosion-local-manager.ts # Manages local Corrosion agent process
+corrosion-sync-manager.ts  # Polls Corrosion for changes and broadcasts via SSE
 docs.ts           # OpenAPI doc + Scalar mount helper
 static/
   index.html      # Datastar frontend (8 sections, 20 patterns, responsive)
@@ -271,18 +313,20 @@ migrations/
   0001_init.sql   # Counter table (single-row pattern)
   0002_notes.sql  # Notes table
 wrangler.toml     # Cloudflare Workers config
-fly.toml          # Fly.io config
-Dockerfile        # Bun container for Fly.io
+fly.toml          # Fly.io config (now includes Corrosion agent setup)
+Dockerfile        # Bun container for Fly.io (now includes Corrosion binary)
 playwright.config.ts       # Playwright config (excludes screenshots)
 playwright.screenshots.ts  # Headed screenshot config
-Taskfile.yml               # All dev/test/deploy commands
+Taskfile.yml               # All dev/test/deploy commands, now including Corrosion management
+scripts/
+  install-corrosion.sh # Script to install Corrosion binary
 ```
 
 ## Reference Repos
 
 - [w3cj/hono-open-api-starter](https://github.com/w3cj/hono-open-api-starter) — Hono + Drizzle + Zod OpenAPI + Scalar starter (the community template)
 - [w3cj/hono-node-deployment-examples](https://github.com/w3cj/hono-node-deployment-examples) — deploying Hono to Fly.io, Vercel, Cloudflare, etc.
-- [superfly/corrosion](https://github.com/superfly/corrosion) — SQLite + CRDT replication + query subscriptions (the next step for multi-node real-time)
+- [superfly/corrosion](https://github.com/joeblew999/binary-corrosion) — SQLite + CRDT replication + query subscriptions (the next step for multi-node real-time)
 
 ## FAQ
 
@@ -304,15 +348,15 @@ Datastar chose SSE as its wire format because it supports multiplexing — signa
 
 **Q: How does the D1 adapter work? Isn't bun:sqlite synchronous?**
 
-Yes, bun:sqlite is synchronous. The adapter (`db.ts`) wraps synchronous calls to match D1's async interface — `stmt.get()` becomes `Promise.resolve(stmt.get())` behind `async first<T>()`. Since `queries.ts` uses `await db.prepare(sql).bind(v).first<T>()`, and awaiting an already-resolved promise is essentially free, the adapter adds zero overhead while keeping queries.ts unchanged across both platforms.
+Yes, bun:sqlite is synchronous. The adapter (`db.ts`) wraps synchronous calls to match D1's async interface — `stmt.get()` becomes `Promise.resolve(stmt.get())` behind `async first<T>()`. Since `queries.ts` uses `await db.prepare(sql).bind(v).first<T>()`, and awaiting an already-resolved promise is essentially free, the adapter adds zero overhead while keeping queries.ts unchanged across both platforms. The `corrosion-db.ts` adapter functions similarly, wrapping HTTP calls to `superfly/corrosion` to match the `D1Database` interface.
 
 **Q: Can I add more tables/queries?**
 
-Yes. Add migrations in `migrations/`, update `queries.ts` with new D1-typed functions, and add routes in `api.ts`. The same code runs on both platforms. For Bun mode, also add the `CREATE TABLE` statement in `db.ts`'s `initDB()` function (it runs inline migrations on startup).
+Yes. Add migrations in `migrations/`, update `queries.ts` with new D1-typed functions, and add routes in `api.ts`. The same code runs on both platforms. For Bun mode, also add the `CREATE TABLE` statement in `db.ts`'s `initDB()` function (it runs inline migrations on startup). For Corrosion mode, migrations are applied by `initCorrosionDB`.
 
 **Q: How do I scale Fly.io beyond a single node?**
 
-The current broadcast uses an in-process `Set<Listener>` — it works perfectly for a single VM. For multi-node, replace the in-process pub/sub with [Corrosion](https://github.com/superfly/corrosion) (SQLite + CRDT replication + query subscriptions). Subscribe to a SQL query, get pushed updates when the data changes across any node. The Datastar frontend stays identical — it already expects SSE.
+The current `fly.toml` configuration for the `corrosion` process (using `-gossip-port` and `-join`) enables `superfly/corrosion` to form a cluster across multiple Fly.io instances. This allows for multi-master SQLite replication and data synchronization without additional changes to your application code. The Datastar frontend stays identical — it already expects SSE, which will now be driven by changes from any node in the `corrosion` cluster.
 
 **Q: Do I need both platforms? Can I use just one?**
 
