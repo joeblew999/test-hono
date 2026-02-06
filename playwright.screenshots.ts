@@ -1,13 +1,10 @@
 import { defineConfig } from '@playwright/test';
 
-const headed = process.env.HEADED !== '0';
-
 export default defineConfig({
   testDir: './tests',
-  testIgnore: ['**/screenshots.spec.ts'],
-  workers: headed ? 1 : 2,
+  testMatch: ['**/screenshots.spec.ts'],
   use: {
     baseURL: process.env.BASE_URL || 'http://localhost:8787',
-    headless: !headed,
+    viewport: { width: 1280, height: 800 },
   },
 });

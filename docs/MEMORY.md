@@ -4,16 +4,26 @@
 
 The key architectural pattern: **one set of OpenAPI routes serves both JSON (REST) and SSE (Datastar)**.
 
-Two response helpers in `api.ts`:
-- `respond(c, data)` — checks `Accept` header → `datastar-patch-signals` SSE or JSON
-- `respondFragment(c, data)` — sends both signal patch AND DOM element patch via SSE
+Response helpers in `sse.ts`:
+- `isSSE(c)` — checks `Accept: text/event-stream` header
+- `respond(c, data)` — SSE signal patch or JSON based on Accept header
+- `respondFragment(c, data)` — SSE signal patch + DOM element patch
+- `respondPersistent(stream, data)` — pushes to an open SSE stream (Fly.io only)
 
-This means the Datastar frontend and the Scalar "Try It" client hit the **same endpoints** (`/api/counter`, `/api/counter/increment`, etc.). No duplicate routes.
+The Datastar frontend and the Scalar "Try It" client hit the **same endpoints** (`/api/counter`, `/api/counter/increment`, `/api/notes`, etc.). No duplicate routes.
+
+## Dual-Mode Architecture
+
+Same codebase deploys to both Cloudflare Workers and Fly.io:
+- **Workers** (`index.ts`): D1 database, one-shot SSE (request → response → close)
+- **Fly.io** (`server.ts`): bun:sqlite, persistent SSE with real-time broadcast across tabs
+- `db.ts` adapter wraps bun:sqlite to match D1Database async interface — `queries.ts` unchanged
+- `api.ts` route factory accepts optional `BroadcastConfig` — present on Fly.io, absent on Workers
 
 ## Datastar v1 RC.7 (Self-Hosted)
 
 RC.7 is a GitHub-only release (Dec 2025), not published to npm. We self-host:
-- `static/datastar.js` — production bundle (30KB)
+- `static/datastar.js` — production bundle (~14KB)
 - `static/datastar.js.map` — source map for browser debugging
 
 ### SSE Events
@@ -21,7 +31,7 @@ RC.7 is a GitHub-only release (Dec 2025), not published to npm. We self-host:
   - Data format: `signals {"key": value}` (prefix `signals ` before JSON)
 - `datastar-patch-elements` — patch DOM with server-rendered HTML
   - Multiline data format: `selector #id`, `mode inner`, `elements <html>`
-  - Modes: outer, inner, replace, prepend, append, before, after
+  - We use `inner` mode exclusively (most reliable for list re-renders with Idiomorph)
 
 ### Version Pitfall
 npm's `@starfederation/datastar` latest is beta.11 (older). RC.7 uses different event names and attribute names. Never mix versions.
@@ -29,10 +39,10 @@ npm's `@starfederation/datastar` latest is beta.11 (older). RC.7 uses different 
 ## Cloudflare Workers I/O Isolation
 
 Workers CANNOT share I/O objects between request handlers. This means:
-- Persistent SSE broadcast (holding streams open and writing from other requests) is impossible
+- Persistent SSE broadcast is impossible on Workers
 - Module-level variables are per-isolate, NOT shared across production instances
-- Counter state uses D1 (Cloudflare's SQLite) for durable, shared state
-- For true real-time push across tabs, you'd need Durable Objects + WebSockets
+- Counter/notes state uses D1 (Cloudflare's SQLite) for durable, shared state
+- For real-time push: use Fly.io (long-lived VMs with in-process broadcast)
 
 ## D1 Single-Row Pattern
 
@@ -50,3 +60,10 @@ Atomic increment: `UPDATE counter SET value = value + 1 WHERE id = 1 RETURNING v
 ## Static Files
 
 Wrangler serves static files via `[assets] directory = "./static"` in `wrangler.toml`. Do NOT use `[site] bucket` — that requires manual `getAssetFromKV` handling.
+
+## Testing
+
+- 15 Playwright e2e tests (9 counter + 6 notes/demo)
+- Default: headed + serial (real browser, zero race conditions, ~12s)
+- CI mode: `HEADED=0` for headless + parallel (~4s)
+- Screenshots: separate config (`playwright.screenshots.ts`) via `task screenshots`

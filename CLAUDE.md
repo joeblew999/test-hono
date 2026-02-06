@@ -2,71 +2,72 @@
 
 ## Architecture
 
-- **index.ts** — App shell: mounts API router, OpenAPI docs, Scalar UI
-- **api.ts** — All OpenAPI routes + content negotiation (`respond()` / `respondFragment()`)
-- **queries.ts** — All D1 SQL queries (single source of truth)
-- **static/index.html** — Datastar showcase, hits same `/api/*` routes
-- **static/datastar.js** — Self-hosted Datastar v1 RC.7 bundle (+ .map for debugging)
+- **index.ts** — Cloudflare Workers entry point
+- **server.ts** — Bun/Fly.io entry point (persistent SSE with broadcast)
+- **api.ts** — Route composer: imports from routes/, accepts optional BroadcastConfig
+- **routes/counter.ts** — Counter schemas, OpenAPI routes, handlers
+- **routes/notes.ts** — Notes CRUD schemas, OpenAPI routes, handlers
+- **sse.ts** — SSE helpers: isSSE, respond, respondFragment, respondPersistent
+- **types.ts** — Shared types: AppEnv, BroadcastConfig
+- **queries.ts** — All D1 SQL queries (counter + notes)
+- **db.ts** — bun:sqlite → D1 adapter (Bun mode only)
+- **docs.ts** — OpenAPI doc + Scalar mount helper
+- **static/index.html** — Datastar showcase (12 sections, 20 patterns)
+- **static/datastar.js** — Self-hosted Datastar v1 RC.7 bundle (+ .map)
 
 ## Content Negotiation Pattern
 
 Single set of OpenAPI routes serves both JSON and SSE:
-- `Accept: text/event-stream` (Datastar `@get`/`@post`) → SSE response
-- `Accept: */*` (Scalar, curl, API clients) → JSON response
-- `respond(c, data)` → patches signals via `datastar-patch-signals`
+- `isSSE(c)` checks `Accept: text/event-stream` header
+- `respond(c, data)` → patches signals via `datastar-patch-signals` or returns JSON
 - `respondFragment(c, data)` → patches signals AND DOM via `datastar-patch-elements`
 - No duplicate routes — Datastar frontend hits same URLs as REST API
+
+## Dual-Mode Deployment
+
+- **Workers** (`index.ts`): D1, one-shot SSE, `api()` with no broadcast
+- **Fly.io** (`server.ts`): bun:sqlite, persistent SSE, `api(broadcastConfig)`
+- `db.ts` adapter wraps bun:sqlite to match D1Database interface
+- Same routes, same frontend, same 15 tests on both platforms
 
 ## Datastar v1 (RC.7) — Self-Hosted
 
 **Important:** RC.7 is a GitHub release, NOT on npm. We self-host `static/datastar.js`.
 
-### Attributes (all use `data-` prefix)
-- `data-signals='{"key": val}'` — reactive state
-- `data-text="$signal"` — text binding ($ prefix required)
-- `data-on:click="@post('/url')"` — event handler + server action
-- `data-init="@get('/url')"` — run on load (NOT `data-on-load`)
-- `data-class:name="expr"` — conditional CSS class
-- `data-show="expr"` — conditional visibility
-- `data-computed:name="expr"` — derived signal (name MUST be lowercase, HTML lowercases attrs)
-- `data-bind="signal"` — two-way input binding
-- `data-attr:name="expr"` — conditional HTML attribute
-- `data-indicator` — loading state signal
-- `data-effect="expr"` — side effect (runs when dependencies change)
-- `data-on:keydown.window="expr"` — global keyboard listener
+### Working Attributes
+- `data-signals`, `data-text`, `data-on:click`, `data-init`, `data-class`, `data-show`
+- `data-computed` (name MUST be lowercase), `data-bind`, `data-attr`, `data-effect`
+- `data-style`, `data-json-signals`, `data-on:keydown.window`, `data-on:input.debounce`
+- Actions: `@get`, `@post`, `@delete`
+
+### Things That DON'T Work (RC.7)
+- `data-on:submit.prevent` — form submits normally → use `data-on:click` on button
+- `data-on-intersect` — doesn't fire in headless Playwright → use `data-init`
+- `data-on-interval` — expression never executes → use `data-init="setInterval(...)"`
+- `evt.target.value` — undefined → use `$evt.target.value` ($ prefix required)
+- Fragment `prepend`/`outer` multi-ops — unreliable → use single `inner` mode
 
 ### SSE Events
-- `datastar-patch-signals` — update signals: `data: signals {"key": value}`
-- `datastar-patch-elements` — patch DOM (multiline data):
-  ```
-  data: selector #id
-  data: mode inner
-  data: elements <html>
-  ```
-  Fields: `selector`, `mode` (outer|inner|replace|prepend|append|before|after), `elements`
+- `datastar-patch-signals` — data: `signals {"key": value}`
+- `datastar-patch-elements` — data: `selector #id` / `mode inner` / `elements <html>`
+- Use `inner` mode exclusively for list re-renders (most reliable with Idiomorph)
+- Element IDs are VITAL for Idiomorph morphing — always use `id="item-${id}"`
 
-## D1 (Cloudflare SQLite)
+## Testing
 
-- Binding: `[[d1_databases]]` in wrangler.toml
-- Atomic updates: `UPDATE ... SET value = value + 1 RETURNING value`
-- Single-row pattern: `CHECK (id = 1)` constraint
-- Local dev: miniflare auto-creates local SQLite
-
-## Cloudflare Workers Constraints
-
-- Workers CANNOT share I/O objects between request handlers
-- Persistent SSE broadcast across requests is impossible
-- For real-time push, use Durable Objects + WebSockets
-
-## OpenAPI / Scalar
-
-- Scalar defaults to the first server in the `servers` array
-- Production URL must be first for "Try It" to work on deployed site
-- `respond()` uses `c: any` intentionally — SSE return type can't satisfy OpenAPI typed response
+- 15 Playwright e2e tests (9 counter + 6 notes/demo)
+- `task test` — headed + serial (real browser, ~12s, zero race conditions)
+- `task test:ci` — headless + parallel (fast, ~4s, for CI)
+- `task screenshots` — headed capture to docs/screenshots/
+- `pressSequentially` not `fill` for `data-bind` inputs
+- Text-based locators (`{ hasText: 'X' }`) for Idiomorph-morphed lists
 
 ## Commands
 
-- `task dev` — start dev server with logs
-- `task test` — run Playwright e2e tests (9 tests)
-- `task deploy` — deploy to Cloudflare Workers
-- `task stop` — stop dev server
+- `task dev` — start Workers dev server with logs (port 8787)
+- `task fly:dev` — start Bun server (port 3000, persistent SSE)
+- `task test` — run 15 e2e tests headed + serial
+- `task test:ci` — run 15 e2e tests headless + parallel
+- `task deploy` — deploy to Cloudflare Workers (runs remote D1 migrations)
+- `task fly:deploy` — deploy to Fly.io
+- `task screenshots` — capture headed screenshots to docs/screenshots/

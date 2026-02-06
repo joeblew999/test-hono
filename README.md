@@ -4,12 +4,19 @@ Hono + Datastar pattern showcase — dual-mode deployment to Cloudflare Workers 
 
 **repo** https://github.com/joeblew999/test-hono
 
+**Local (Workers):** http://localhost:8787 — `task dev`
+
+**Local (Bun):** http://localhost:3000 — `task fly:dev`
+
 **Cloudflare Workers:** https://test-hono.gedw99.workers.dev
 
 **Fly.io (persistent SSE):** https://test-hono-bun.fly.dev
 
 [![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/joeblew999/test-hono)
 
+![Full page screenshot](docs/screenshots/full-page.png)
+
+![Notes CRUD with counter at 5](docs/screenshots/notes-crud.png)
 
 ## Stack
 
@@ -18,7 +25,7 @@ Hono + Datastar pattern showcase — dual-mode deployment to Cloudflare Workers 
 - [Cloudflare Workers](https://developers.cloudflare.com/workers/) — serverless runtime (one-shot SSE)
 - [Fly.io](https://fly.io) + [Bun](https://bun.sh) — persistent runtime (real-time SSE broadcast)
 - [Cloudflare D1](https://developers.cloudflare.com/d1/) / bun:sqlite — SQLite on both platforms
-- [Playwright](https://playwright.dev) — end-to-end tests (same 9 tests pass on all 4 targets)
+- [Playwright](https://playwright.dev) — end-to-end tests (same 15 tests pass on all 4 targets)
 - [Task](https://taskfile.dev) — task runner
 
 ## Prerequisites
@@ -32,7 +39,7 @@ Just install [Task](https://taskfile.dev) — everything else (Bun, npm packages
 ```sh
 task deps       # install Bun (if needed) + all dependencies
 task dev        # start dev server with live logs (port 8787)
-task test       # run 9 e2e tests
+task test       # run 15 e2e tests
 task deploy     # deploy to Cloudflare Workers
 ```
 
@@ -41,7 +48,7 @@ task deploy     # deploy to Cloudflare Workers
 ```sh
 task deps       # install Bun (if needed) + all dependencies
 task fly:dev    # start Bun server with persistent SSE (port 3000)
-task fly:test   # run same 9 e2e tests against Bun server
+task fly:test   # run same 15 e2e tests against Bun server
 task fly:deploy # deploy to Fly.io (creates app + volume if needed)
 ```
 
@@ -65,7 +72,7 @@ Cloudflare Workers (index.ts)          Fly.io / Bun (server.ts)
               │    api.ts      │  ← shared routes + content negotiation
               │  queries.ts    │  ← shared SQL (D1 interface)
               │  index.html    │  ← shared Datastar frontend
-              │  9 Playwright  │  ← shared tests
+              │  15 Playwright │  ← shared tests
               │    tests       │
               └────────────────┘
 ```
@@ -131,27 +138,29 @@ task            # list all commands
 task dev        # start dev server with logs (port 8787)
 task start      # start server in background
 task stop       # stop dev server
-task test       # run e2e tests (auto-starts server)
+task test       # run 15 e2e tests headed + serial (real browser)
+task test:ci    # run 15 e2e tests headless + parallel (fast, for CI)
 task deploy     # deploy to Cloudflare Workers (runs remote migrations)
-task test:deployed  # run e2e tests against deployed worker
+task test:deployed  # run e2e tests against deployed worker (headless)
 
 # Fly.io (Bun + SQLite + persistent SSE)
 task fly:dev    # start Bun server (port 3000, persistent SSE)
 task fly:start  # start in background
 task fly:stop   # stop Bun server
-task fly:test   # run e2e tests against Bun server
+task fly:test   # run e2e tests headed against Bun server
 task fly:deploy # deploy to Fly.io (creates app + volume if needed)
-task fly:test:deployed  # run e2e tests against deployed Fly.io app
+task fly:test:deployed  # run e2e tests against deployed Fly.io app (headless)
 task fly:login  # authenticate with Fly.io
 task fly:launch # create Fly.io app + volume (idempotent)
 
-# Database & setup
-task db:create  # create remote D1 database (one-time)
-task db:migrate # apply migrations locally
+# Screenshots & setup
+task screenshots    # capture headed screenshots to docs/screenshots/
+task db:create      # create remote D1 database (one-time)
+task db:migrate     # apply migrations locally
 task db:migrate:remote  # apply migrations to remote database
-task login      # authenticate with Cloudflare
-task ci:secrets # set Cloudflare secrets in GitHub for CI
-task deps       # install Bun + all dependencies
+task login          # authenticate with Cloudflare
+task ci:secrets     # set Cloudflare secrets in GitHub for CI
+task deps           # install Bun + all dependencies
 ```
 
 ## CI Deployment
@@ -169,23 +178,30 @@ After that, every push to `main` auto-deploys via GitHub Actions.
 
 ## Datastar Patterns Showcased
 
-The index page demonstrates 13 Datastar v1 patterns:
+The index page demonstrates 20 Datastar v1 patterns across 12 sections (counter, notes CRUD, interval timer, reactive styles, debounce, signal inspector):
 
 | Pattern | Description |
 |---------|-------------|
 | `data-signals` | Reactive state store |
 | `data-text` | Text binding |
-| `data-on:click` | Event handlers with server actions |
-| `data-init` | Initialization (fetch on load) |
+| `data-on:click` | Event handlers with server actions (`@post`, `@delete`) |
+| `data-init` | Initialization (fetch on load, setInterval) |
 | `data-class` | Conditional CSS classes |
 | `data-show` | Conditional visibility |
 | `data-computed` | Derived signals |
 | `data-bind` | Two-way input binding |
 | `data-attr` | Conditional HTML attributes |
-| `data-indicator` | Loading state |
 | `data-effect` | Reactive side effects |
+| `data-style` | Reactive inline styles (width, background-color) |
+| `data-json-signals` | Live JSON dump of all signals |
 | `data-on:keydown.window` | Global keyboard listeners |
-| `datastar-patch-elements` | Server-rendered HTML fragments via SSE |
+| `data-on:input.debounce` | Debounced input handler (`.debounce:500ms` modifier) |
+| `@post` | Server action: POST request |
+| `@delete` | Server action: DELETE request |
+| `@get` | Server action: GET request |
+| `datastar-patch-signals` | SSE event: update signal values |
+| `datastar-patch-elements` | SSE event: patch DOM fragments via inner mode |
+| Fragment `inner` mode | Replace element contents (most reliable for list re-renders) |
 
 ## Why This Matters
 
@@ -200,7 +216,7 @@ The same `POST /api/counter/increment` endpoint that returns `{"count": 3}` to c
 
 The frontend is **zero-build HTML** — no JSX, no bundler, no virtual DOM. Datastar attributes (`data-text`, `data-on:click`, `data-show`, `data-computed`) make the page reactive through declarative HTML. The entire frontend is a single `index.html` with no compilation step. Add a Datastar attribute, reload the page, done.
 
-**The dual-mode breakthrough:** The same codebase deploys to both serverless (Cloudflare Workers) and persistent (Fly.io) runtimes. On Workers, SSE is one-shot — each request gets a response and the connection closes. On Fly.io, the same GET endpoint holds the connection open and broadcasts changes in real-time. The difference is a single optional parameter (`BroadcastConfig`) passed to the route factory. No `if` statements, no environment detection, no platform-specific code paths. Same routes, same frontend, same 9 tests — verified on all 4 targets (Workers local, Workers production, Bun local, Fly.io production).
+**The dual-mode breakthrough:** The same codebase deploys to both serverless (Cloudflare Workers) and persistent (Fly.io) runtimes. On Workers, SSE is one-shot — each request gets a response and the connection closes. On Fly.io, the same GET endpoint holds the connection open and broadcasts changes in real-time. The difference is a single optional parameter (`BroadcastConfig`) passed to the route factory. No `if` statements, no environment detection, no platform-specific code paths. Same routes, same frontend, same 15 tests — verified on all 4 targets (Workers local, Workers production, Bun local, Fly.io production).
 
 | Traditional SPA | This project |
 |----------------|-------------|
@@ -229,21 +245,34 @@ The frontend is **zero-build HTML** — no JSX, no bundler, no virtual DOM. Data
 ```
 index.ts          # Cloudflare Workers entry point
 server.ts         # Bun/Fly.io entry point (persistent SSE)
-api.ts            # Shared OpenAPI routes + content negotiation
+api.ts            # Route composer (imports from routes/)
+types.ts          # Shared types: AppEnv, BroadcastConfig
+sse.ts            # Reusable SSE helpers: respond, respondFragment, respondPersistent
+routes/
+  counter.ts      # Counter schemas, OpenAPI routes, handlers
+  notes.ts        # Notes CRUD schemas, OpenAPI routes, handlers
 queries.ts        # Shared D1-typed SQL queries
 db.ts             # bun:sqlite → D1 adapter (Bun mode only)
+docs.ts           # OpenAPI doc + Scalar mount helper
 static/
-  index.html      # Datastar frontend (7 sections, 13 patterns)
+  index.html      # Datastar frontend (12 sections, 20 patterns)
   datastar.js     # Self-hosted Datastar v1 RC.7
   datastar.js.map # Source map for browser debugging
 tests/
-  counter.spec.ts # 9 Playwright e2e tests
+  counter.spec.ts     # 9 counter e2e tests
+  notes.spec.ts       # 6 notes/demo e2e tests
+  screenshots.spec.ts # headed screenshot capture
+docs/
+  screenshots/        # auto-generated screenshots (task screenshots)
 migrations/
   0001_init.sql   # Counter table (single-row pattern)
+  0002_notes.sql  # Notes table
 wrangler.toml     # Cloudflare Workers config
 fly.toml          # Fly.io config
 Dockerfile        # Bun container for Fly.io
-Taskfile.yml      # All dev/test/deploy commands
+playwright.config.ts       # Playwright config (excludes screenshots)
+playwright.screenshots.ts  # Headed screenshot config
+Taskfile.yml               # All dev/test/deploy commands
 ```
 
 ## Reference Repos

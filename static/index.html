@@ -242,6 +242,153 @@
             color: #64748b;
         }
 
+        /* Notes */
+        .notes-form {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        .notes-form input[type="text"] {
+            font-family: inherit;
+            font-size: 0.9rem;
+            padding: 8px 12px;
+            border: 1px solid #475569;
+            border-radius: 8px;
+            background: #0f172a;
+            color: #f8fafc;
+            flex: 1;
+        }
+        .notes-form input[type="text"]:focus {
+            outline: none;
+            border-color: #818cf8;
+        }
+        .notes-list {
+            list-style: none;
+            padding: 0;
+        }
+        .note-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            border-bottom: 1px solid #334155;
+        }
+        .note-item:last-child { border-bottom: none; }
+        .note-text {
+            flex: 1;
+            font-size: 0.9rem;
+        }
+        .note-date {
+            font-size: 0.7rem;
+            color: #64748b;
+            white-space: nowrap;
+        }
+        .note-delete {
+            font-size: 1.1rem;
+            padding: 2px 8px;
+            border: 1px solid #475569;
+            border-radius: 4px;
+            background: transparent;
+            color: #f87171;
+            cursor: pointer;
+            line-height: 1;
+        }
+        .note-delete:hover { background: #2a0a0a; border-color: #f87171; }
+        .note-empty {
+            padding: 12px;
+            text-align: center;
+            color: #64748b;
+            font-size: 0.85rem;
+        }
+
+        /* Progress bar */
+        .bar-track {
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            height: 32px;
+            overflow: hidden;
+        }
+        .bar-fill {
+            height: 100%;
+            border-radius: 7px;
+            transition: width 0.3s, background-color 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #f8fafc;
+            min-width: 24px;
+        }
+
+        /* Clock */
+        .clock-display {
+            font-size: 2.5rem;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            text-align: center;
+            color: #f8fafc;
+            letter-spacing: 0.05em;
+        }
+        .elapsed {
+            text-align: center;
+            font-size: 0.85rem;
+            color: #64748b;
+            margin-top: 8px;
+        }
+
+        /* Debounce */
+        .debounce-row {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+        }
+        .debounce-row input[type="text"] {
+            font-family: inherit;
+            font-size: 0.9rem;
+            padding: 8px 12px;
+            border: 1px solid #475569;
+            border-radius: 8px;
+            background: #0f172a;
+            color: #f8fafc;
+            flex: 1;
+        }
+        .debounce-row input[type="text"]:focus {
+            outline: none;
+            border-color: #818cf8;
+        }
+        .debounce-output {
+            font-size: 0.9rem;
+            color: #94a3b8;
+            min-width: 120px;
+        }
+
+        /* Signal inspector */
+        .inspector-pre {
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 16px;
+            font-family: ui-monospace, monospace;
+            font-size: 0.75rem;
+            color: #94a3b8;
+            overflow-x: auto;
+            max-height: 300px;
+            overflow-y: auto;
+            line-height: 1.5;
+        }
+
+        /* Lazy section */
+        .lazy-box {
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+            min-height: 48px;
+        }
+
         /* Links */
         .links {
             display: flex;
@@ -260,7 +407,7 @@
 </head>
 <body>
     <div class="container"
-         data-signals='{"count": 0, "inputValue": 0, "lastKey": "", "isFetching": false}'
+         data-signals='{"count": 0, "inputValue": 0, "lastKey": "", "isFetching": false, "newNote": "", "noteCount": 0, "elapsed": 0, "debouncedText": ""}'
          data-computed:abscount="Math.abs($count)"
          data-computed:parity="$count % 2 === 0 ? 'even' : 'odd'"
          data-computed:sign="$count > 0 ? 'positive' : $count < 0 ? 'negative' : 'zero'"
@@ -298,7 +445,7 @@
                 <span class="pattern-tag">data-on:click</span>
                 <span class="pattern-tag">data-init</span>
                 <span class="pattern-tag">data-class</span>
-                <span class="pattern-tag">data-indicator</span>
+                <span class="pattern-tag">data-show</span>
                 <span class="pattern-tag">data-attr</span>
             </p>
 
@@ -439,6 +586,104 @@
             <div style="text-align: center; font-size: 0.85rem; color: #94a3b8;">
                 Check your browser tab — the title updates with the count.
             </div>
+        </section>
+
+        <!-- Section 8: Notes CRUD -->
+        <section>
+            <h2>Notes
+                <span class="indicator" data-show="$isFetching"></span>
+            </h2>
+            <p class="section-desc">
+                Full CRUD with server-rendered list items. Form submit creates; delete button removes. Server re-renders the full list on each mutation — no client-side templating.
+                <br>
+                <span class="pattern-tag">@post</span>
+                <span class="pattern-tag">@delete</span>
+                <span class="pattern-tag">datastar-patch-elements</span>
+            </p>
+
+            <div class="notes-form">
+                <input type="text" data-bind="newNote" placeholder="Add a note...">
+                <button data-on:click="@post('/api/notes')">Add</button>
+            </div>
+
+            <ul id="notes-list" class="notes-list"
+                data-init="@get('/api/notes')">
+                <li class="note-empty">Loading...</li>
+            </ul>
+
+            <div style="text-align: center; font-size: 0.8rem; color: #64748b; margin-top: 8px;">
+                <span data-text="$noteCount"></span> notes
+            </div>
+        </section>
+
+        <!-- Section 9: Interval Timer -->
+        <section>
+            <h2>Interval Timer</h2>
+            <p class="section-desc">
+                A client-side clock that ticks every second. No server requests — pure reactive interval with automatic cleanup.
+                <br>
+                <span class="pattern-tag">data-on-interval</span>
+                <span class="pattern-tag">.duration</span>
+            </p>
+
+            <div data-init="setInterval(() => $elapsed++, 1000)">
+                <div class="clock-display" data-text="new Date().toLocaleTimeString()"></div>
+                <div class="elapsed">
+                    Page open for <strong data-text="$elapsed"></strong> seconds
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 10: Reactive Styles -->
+        <section>
+            <h2>Reactive Styles</h2>
+            <p class="section-desc">
+                A progress bar driven by the counter value. Width and color update reactively via inline style expressions — no CSS classes needed.
+                <br>
+                <span class="pattern-tag">data-style</span>
+            </p>
+
+            <div class="bar-track">
+                <div class="bar-fill"
+                     data-style:width="Math.min(Math.abs($count) * 10, 100) + '%'"
+                     data-style:background-color="$count > 0 ? '#4ade80' : $count < 0 ? '#f87171' : '#64748b'"
+                     data-text="Math.min(Math.abs($count) * 10, 100) + '%'">
+                </div>
+            </div>
+            <div style="text-align: center; font-size: 0.8rem; color: #64748b; margin-top: 8px;">
+                Each count = 10% width (capped at 100%)
+            </div>
+        </section>
+
+        <!-- Section 11: Debounce -->
+        <section>
+            <h2>Debounce</h2>
+            <p class="section-desc">
+                The output updates 500ms after you stop typing — not on every keystroke. The <code>.debounce</code> modifier handles timing automatically.
+                <br>
+                <span class="pattern-tag">.debounce</span>
+            </p>
+
+            <div class="debounce-row">
+                <input type="text"
+                       data-on:input.debounce:500ms="$debouncedText = $evt.target.value"
+                       placeholder="Type something...">
+                <div class="debounce-output">
+                    Debounced: <strong data-text="$debouncedText || '...'"></strong>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 12: Signal Inspector -->
+        <section>
+            <h2>Signal Inspector</h2>
+            <p class="section-desc">
+                Live JSON dump of every signal in the store. Updates in real-time as you interact with the page — useful for debugging.
+                <br>
+                <span class="pattern-tag">data-json-signals</span>
+            </p>
+
+            <pre class="inspector-pre" data-json-signals></pre>
         </section>
 
         <!-- Footer links -->

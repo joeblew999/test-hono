@@ -1,16 +1,16 @@
 import { Database } from 'bun:sqlite'
-
-let database: Database
+import { readdirSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
 
 export function initDB(path: string): Database {
-  database = new Database(path, { create: true })
-  database.run('CREATE TABLE IF NOT EXISTS counter (id INTEGER PRIMARY KEY CHECK (id = 1), value INTEGER NOT NULL DEFAULT 0)')
-  database.run('INSERT OR IGNORE INTO counter (id, value) VALUES (1, 0)')
-  return database
-}
-
-export function getDB(): Database {
-  return database
+  const db = new Database(path, { create: true })
+  // Run migration files (same ones wrangler uses for D1)
+  const migrationsDir = join(import.meta.dir, 'migrations')
+  const files = readdirSync(migrationsDir).filter(f => f.endsWith('.sql')).sort()
+  for (const file of files) {
+    db.run(readFileSync(join(migrationsDir, file), 'utf-8'))
+  }
+  return db
 }
 
 // Makes bun:sqlite look like Cloudflare D1Database so queries.ts works unchanged
@@ -24,6 +24,9 @@ export function createD1Compat(db: Database): D1Database {
             async first<T>(): Promise<T | null> {
               return stmt.get(...params) as T | null
             },
+            async all<T>(): Promise<D1Result<T>> {
+              return { results: stmt.all(...params) as T[], success: true, meta: {} } as D1Result<T>
+            },
             async run() {
               db.run(sql, ...params)
               return {} as D1Response
@@ -32,6 +35,9 @@ export function createD1Compat(db: Database): D1Database {
         },
         async first<T>(): Promise<T | null> {
           return stmt.get() as T | null
+        },
+        async all<T>(): Promise<D1Result<T>> {
+          return { results: stmt.all() as T[], success: true, meta: {} } as D1Result<T>
         },
         async run() {
           db.run(sql)

@@ -1,9 +1,10 @@
 import { OpenAPIHono } from '@hono/zod-openapi'
-import { Scalar } from '@scalar/hono-api-reference'
 import { serveStatic } from 'hono/bun'
 import { mkdirSync } from 'node:fs'
 import { initDB, createD1Compat } from './db'
-import api, { type BroadcastConfig } from './api'
+import type { AppEnv, BroadcastConfig } from './types'
+import api from './api'
+import { mountDocs } from './docs'
 
 // Initialize SQLite
 const dbPath = process.env.DB_PATH || './data/counter.db'
@@ -12,7 +13,7 @@ const sqliteDb = initDB(dbPath)
 const d1 = createD1Compat(sqliteDb)
 
 // Broadcast: persistent SSE push to all connected clients
-type Listener = (data: { count: number }) => void
+type Listener = (data: Record<string, unknown>) => void
 const listeners = new Set<Listener>()
 
 const broadcastConfig: BroadcastConfig = {
@@ -26,7 +27,7 @@ const broadcastConfig: BroadcastConfig = {
 }
 
 // App
-const app = new OpenAPIHono()
+const app = new OpenAPIHono<AppEnv>()
 
 // Inject D1-compatible DB into every request's env
 app.use('/api/*', async (c, next) => {
@@ -36,22 +37,13 @@ app.use('/api/*', async (c, next) => {
 
 app.route('/api', api(broadcastConfig))
 
-app.doc31('/api/doc', {
-  openapi: '3.1.0',
-  info: {
-    version: '1.0.0',
-    title: 'Hono Datastar API (Bun + SQLite)',
-    description: 'Counter API with persistent SSE broadcast. Same routes as Workers, but with real-time push.',
-  },
-  tags: [
-    { name: 'Counter', description: 'Read, increment, decrement, and reset the shared counter.' },
-  ],
+mountDocs(app, {
+  title: 'Hono Datastar API (Bun + SQLite)',
+  description: 'Counter API with persistent SSE broadcast. Same routes as Workers, but with real-time push.',
   servers: [
     { url: 'http://localhost:3000', description: 'Local dev (Bun)' },
   ],
 })
-
-app.get('/ui', Scalar({ url: '/api/doc' }))
 
 // Static files (same ./static directory as Workers)
 app.use('/*', serveStatic({ root: './static' }))

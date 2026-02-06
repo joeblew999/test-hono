@@ -1,6 +1,6 @@
 version: '3'
 
-# Hono + Datastar on Cloudflare Workers
+# Hono + Datastar — Dual-mode deployment
 #
 # Prerequisites:
 #   - task (https://taskfile.dev) — the ONLY prerequisite
@@ -8,17 +8,12 @@ version: '3'
 #
 # Quick start:
 #   task deps        # install Bun (if needed) + all dependencies
-#   task dev         # start dev server with live logs
-#   task test        # run e2e tests against local server
-#   task deploy      # deploy to Cloudflare Workers
+#   task dev         # Cloudflare Workers dev server (port 8787)
+#   task fly:dev     # Bun server with persistent SSE (port 3000)
+#   task test        # e2e tests against Workers
+#   task fly:test    # same e2e tests against Bun
 #
 # All tasks are idempotent — safe to run multiple times.
-#
-# Architecture notes:
-#   - Counter state stored in D1 (Cloudflare's SQLite) for durability
-#   - Atomic increment/decrement via UPDATE ... RETURNING
-#   - Local dev uses miniflare's built-in local SQLite (automatic)
-#   - Static files served via [assets] in wrangler.toml (NOT [site])
 
 # Ensure ~/.bun/bin is on PATH so freshly-installed Bun is found immediately
 env:
@@ -26,10 +21,19 @@ env:
     sh: echo "$HOME/.bun/bin:$PATH"
 
 vars:
-  LOG_FILE: .wrangler/wrangler.log
-  LOCAL_URL: http://localhost:8787
-  # Set this to your deployed worker URL (printed by `task deploy`)
-  DEPLOYED_URL: '{{.DEPLOYED_URL | default "https://test-hono.gedw99.workers.dev"}}'
+  # Cloudflare Workers
+  D1_DB: test-hono-db
+  CF_LOG: .wrangler/wrangler.log
+  CF_URL: http://localhost:8787
+  CF_DEPLOYED_URL: '{{.CF_DEPLOYED_URL | default "https://test-hono.gedw99.workers.dev"}}'
+  # Fly.io / Bun
+  FLY_APP: test-hono-bun
+  FLY_REGION: sjc
+  FLY_DB_PATH: ./data/counter.db
+  FLY_PORT: "3000"
+  FLY_URL: http://localhost:3000
+  FLY_LOG: .wrangler/bun.log
+  FLY_DEPLOYED_URL: '{{.FLY_DEPLOYED_URL | default "https://test-hono-bun.fly.dev"}}'
 
 tasks:
   default:
@@ -38,80 +42,85 @@ tasks:
       - task --list-all
     silent: true
 
-  # --- Development ---
+  # --- Cloudflare Workers Development ---
 
   dev:
-    desc: "Starts the dev server with live logs"
+    desc: "Starts the Workers dev server with live logs"
     cmds:
       - task: stop
       - task: start
       - task: logs
 
   start:
-    desc: "Starts the server in the background (skips if already running)"
+    desc: "Starts the Workers server in background (skips if already running)"
     cmds:
       - |
-        if curl -s -o /dev/null -w '' {{.LOCAL_URL}}/ 2>/dev/null; then
-          echo "Server already running at {{.LOCAL_URL}}"
+        if curl -s -o /dev/null -w '' {{.CF_URL}}/ 2>/dev/null; then
+          echo "Server already running at {{.CF_URL}}"
           exit 0
         fi
         mkdir -p .wrangler
-        bunx wrangler d1 migrations apply test-hono-db --local
-        bun run dev > {{.LOG_FILE}} 2>&1 &
+        bunx wrangler d1 migrations apply {{.D1_DB}} --local
+        bun run dev > {{.CF_LOG}} 2>&1 &
         for i in $(seq 1 15); do
-          curl -s -o /dev/null -w '' {{.LOCAL_URL}}/ 2>/dev/null && break
+          curl -s -o /dev/null -w '' {{.CF_URL}}/ 2>/dev/null && break
           sleep 1
         done
-        echo "Server ready at {{.LOCAL_URL}}"
+        echo "Server ready at {{.CF_URL}}"
     silent: true
 
   stop:
-    desc: "Stops the development server (no-op if not running)"
+    desc: "Stops the Workers dev server (no-op if not running)"
     cmds:
       - pkill -f "wrangler dev" || true
     silent: true
 
   restart:
-    desc: "Stops and starts the development server"
+    desc: "Stops and restarts the Workers dev server"
     cmds:
       - task: stop
       - sleep 1
-      - |
-        mkdir -p .wrangler
-        bunx wrangler d1 migrations apply test-hono-db --local
-        bun run dev > {{.LOG_FILE}} 2>&1 &
-        for i in $(seq 1 15); do
-          curl -s -o /dev/null -w '' {{.LOCAL_URL}}/ 2>/dev/null && break
-          sleep 1
-        done
-        echo "Server ready at {{.LOCAL_URL}}"
-    silent: true
+      - task: start
 
   logs:
-    desc: "Follow the development server logs"
+    desc: "Follow the Workers dev server logs"
     cmds:
-      - tail -f {{.LOG_FILE}}
+      - tail -f {{.CF_LOG}}
 
-  # --- Testing ---
+  # --- Cloudflare Workers Testing ---
 
   test:
-    desc: "Runs Playwright e2e tests against local dev server"
+    desc: "Runs e2e tests headed + serial (real browser, no race conditions)"
     cmds:
       - task: start
       - bun run test
 
+  test:ci:
+    desc: "Runs e2e tests headless + parallel (fast, for CI)"
+    cmds:
+      - task: start
+      - HEADED=0 bun run test
+
+  screenshots:
+    desc: "Captures screenshots (headed browser) and saves to docs/screenshots/"
+    cmds:
+      - task: start
+      - mkdir -p docs/screenshots
+      - bunx playwright test --config=playwright.screenshots.ts --headed
+      - echo "Screenshots saved to docs/screenshots/"
+
   test:deployed:
-    desc: "Runs e2e tests against the deployed worker ({{.DEPLOYED_URL}})"
+    desc: "Runs e2e tests against deployed worker ({{.CF_DEPLOYED_URL}})"
     summary: |
       Usage:
-        task test:deployed                              # uses DEPLOYED_URL from Taskfile
+        task test:deployed                              # uses CF_DEPLOYED_URL from Taskfile
         task test:deployed -- https://your.workers.dev  # override with explicit URL
-        DEPLOYED_URL=https://... task test:deployed      # override via env var
+        CF_DEPLOYED_URL=https://... task test:deployed   # override via env var
     cmds:
-      - echo "Testing against {{if .CLI_ARGS}}{{.CLI_ARGS}}{{else}}{{.DEPLOYED_URL}}{{end}}"
-      - BASE_URL={{if .CLI_ARGS}}{{.CLI_ARGS}}{{else}}{{.DEPLOYED_URL}}{{end}} bun run test
+      - echo "Testing against {{if .CLI_ARGS}}{{.CLI_ARGS}}{{else}}{{.CF_DEPLOYED_URL}}{{end}}"
+      - HEADED=0 BASE_URL={{if .CLI_ARGS}}{{.CLI_ARGS}}{{else}}{{.CF_DEPLOYED_URL}}{{end}} bun run test
 
-  # --- Deployment ---
+  # --- Cloudflare Workers Deployment ---
 
   login:
     desc: "Authenticates with Cloudflare (skips if already logged in)"
@@ -128,7 +137,7 @@ tasks:
   deploy:
     desc: "Deploys the worker to Cloudflare (runs remote migrations first)"
     cmds:
-      - bunx wrangler d1 migrations apply test-hono-db --remote
+      - bunx wrangler d1 migrations apply {{.D1_DB}} --remote
       - bun run deploy
 
   ci:secrets:
@@ -183,24 +192,24 @@ tasks:
         echo "CI will now auto-deploy on push to main."
     silent: true
 
-  # --- Database ---
+  # --- D1 Database ---
 
   db:create:
     desc: "Creates the D1 database on Cloudflare (one-time setup)"
     cmds:
-      - bunx wrangler d1 create test-hono-db
+      - bunx wrangler d1 create {{.D1_DB}}
     silent: true
 
   db:migrate:
     desc: "Applies D1 migrations locally"
     cmds:
-      - bunx wrangler d1 migrations apply test-hono-db --local
+      - bunx wrangler d1 migrations apply {{.D1_DB}} --local
     silent: true
 
   db:migrate:remote:
     desc: "Applies D1 migrations to the remote database"
     cmds:
-      - bunx wrangler d1 migrations apply test-hono-db --remote
+      - bunx wrangler d1 migrations apply {{.D1_DB}} --remote
     silent: true
 
   # --- Setup ---
@@ -230,26 +239,24 @@ tasks:
   # --- Fly.io (Bun + SQLite + Persistent SSE) ---
 
   fly:dev:
-    desc: "Starts the Bun server locally (port 3000, persistent SSE)"
+    desc: "Starts the Bun server locally (port {{.FLY_PORT}}, persistent SSE)"
     cmds:
       - mkdir -p data
       - bun run server.ts
     env:
-      DB_PATH: ./data/counter.db
-      PORT: "3000"
+      DB_PATH: '{{.FLY_DB_PATH}}'
+      PORT: '{{.FLY_PORT}}'
 
   fly:start:
-    desc: "Starts the Bun server in background (port 3000)"
-    vars:
-      FLY_URL: http://localhost:3000
+    desc: "Starts the Bun server in background (port {{.FLY_PORT}})"
     cmds:
       - |
         if curl -s -o /dev/null -w '' {{.FLY_URL}}/ 2>/dev/null; then
           echo "Bun server already running at {{.FLY_URL}}"
           exit 0
         fi
-        mkdir -p data
-        DB_PATH=./data/counter.db PORT=3000 bun run server.ts > .wrangler/bun.log 2>&1 &
+        mkdir -p data .wrangler
+        DB_PATH={{.FLY_DB_PATH}} PORT={{.FLY_PORT}} bun run server.ts > {{.FLY_LOG}} 2>&1 &
         for i in $(seq 1 15); do
           curl -s -o /dev/null -w '' {{.FLY_URL}}/ 2>/dev/null && break
           sleep 1
@@ -263,19 +270,29 @@ tasks:
       - pkill -f "bun run server.ts" || true
     silent: true
 
+  fly:restart:
+    desc: "Stops and restarts the Bun server"
+    cmds:
+      - task: fly:stop
+      - sleep 1
+      - task: fly:start
+
+  fly:logs:
+    desc: "Follow the Bun server logs"
+    cmds:
+      - tail -f {{.FLY_LOG}}
+
   fly:test:
-    desc: "Runs Playwright e2e tests against local Bun server (port 3000)"
+    desc: "Runs e2e tests against local Bun server (port {{.FLY_PORT}})"
     cmds:
       - task: fly:start
-      - BASE_URL=http://localhost:3000 bun run test
+      - BASE_URL={{.FLY_URL}} bun run test
 
   fly:test:deployed:
-    desc: "Runs e2e tests against deployed Fly.io app"
-    vars:
-      FLY_APP_URL: '{{.FLY_APP_URL | default "https://test-hono-bun.fly.dev"}}'
+    desc: "Runs e2e tests against deployed Fly.io app ({{.FLY_DEPLOYED_URL}})"
     cmds:
-      - echo "Testing against {{if .CLI_ARGS}}{{.CLI_ARGS}}{{else}}{{.FLY_APP_URL}}{{end}}"
-      - BASE_URL={{if .CLI_ARGS}}{{.CLI_ARGS}}{{else}}{{.FLY_APP_URL}}{{end}} bun run test
+      - echo "Testing against {{if .CLI_ARGS}}{{.CLI_ARGS}}{{else}}{{.FLY_DEPLOYED_URL}}{{end}}"
+      - HEADED=0 BASE_URL={{if .CLI_ARGS}}{{.CLI_ARGS}}{{else}}{{.FLY_DEPLOYED_URL}}{{end}} bun run test
 
   fly:login:
     desc: "Authenticates with Fly.io (skips if already logged in)"
@@ -293,17 +310,17 @@ tasks:
     desc: "Creates Fly.io app + volume (one-time setup, idempotent)"
     cmds:
       - |
-        if fly apps list --json 2>/dev/null | grep -q '"test-hono-bun"'; then
-          echo "App test-hono-bun already exists"
+        if fly apps list --json 2>/dev/null | grep -q '"{{.FLY_APP}}"'; then
+          echo "App {{.FLY_APP}} already exists"
         else
-          fly apps create test-hono-bun
-          echo "Created app test-hono-bun"
+          fly apps create {{.FLY_APP}}
+          echo "Created app {{.FLY_APP}}"
         fi
       - |
         if fly volumes list --json 2>/dev/null | grep -q '"name":"data"'; then
           echo "Volume 'data' already exists"
         else
-          fly volumes create data --region sjc --size 1 --yes
+          fly volumes create data --region {{.FLY_REGION}} --size 1 --yes
           echo "Created volume 'data'"
         fi
     silent: true
