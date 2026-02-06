@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hono + Datastar</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>🔥</text></svg>">
+    <script type="module" src="https://cdn.jsdelivr.net/gh/starfederation/datastar@v1.0.0-RC.7/bundles/datastar.js"></script>
+</head>
+<body>
+    <div data-signals='{"count": 0}' data-on:load="@get('/sse')">
+        <h1>Hono + Datastar Counter</h1>
+
+        <p>Count: <span data-text="$count"></span></p>
+
+        <button data-on:click="@post('/actions/counter/increment')">
+            Increment
+        </button>
+
+        <button data-on:click="@post('/actions/counter/decrement')">
+            Decrement
+        </button>
+
+        <p><a href="/ui">Swagger UI</a></p>
+    </div>
+</body>
+</html>

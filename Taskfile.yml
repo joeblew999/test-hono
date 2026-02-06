@@ -1,0 +1,109 @@
+version: '3'
+
+# Hono + Datastar on Cloudflare Workers
+#
+# Prerequisites:
+#   - bun (package manager)
+#   - task (https://taskfile.dev)
+#   - wrangler (installed via bun, authenticated via `task login`)
+#
+# Quick start:
+#   task deps        # install dependencies
+#   task dev         # start dev server with live logs
+#   task test        # run e2e tests against local server
+#   task deploy      # deploy to Cloudflare Workers
+#
+# Architecture notes:
+#   - Workers CANNOT share I/O objects between requests (no persistent SSE broadcast)
+#   - Module-level state works locally (single process) but is per-isolate in production
+#   - For production shared state, use Workers KV or Durable Objects
+#   - Static files served via [assets] in wrangler.toml (NOT [site])
+
+vars:
+  LOG_FILE: .wrangler/wrangler.log
+  LOCAL_URL: http://localhost:8787
+  # Set this to your deployed worker URL (printed by `task deploy`)
+  DEPLOYED_URL: '{{.DEPLOYED_URL | default "https://test-hono.gedw99.workers.dev"}}'
+
+tasks:
+  default:
+    desc: "Lists all available tasks"
+    cmds:
+      - task --list-all
+    silent: true
+
+  # --- Development ---
+
+  dev:
+    desc: "Starts the dev server with live logs"
+    cmds:
+      - task: stop
+      - task: start
+      - task: logs
+
+  start:
+    desc: "Starts the server in the background"
+    cmds:
+      - mkdir -p .wrangler
+      - bun run dev > {{.LOG_FILE}} 2>&1 &
+      - |
+        for i in $(seq 1 15); do
+          curl -s -o /dev/null -w '' {{.LOCAL_URL}}/ 2>/dev/null && break
+          sleep 1
+        done
+      - echo "Server ready at {{.LOCAL_URL}}"
+    silent: true
+
+  stop:
+    desc: "Stops the development server"
+    cmds:
+      - pkill -f "wrangler dev" || echo "Server not found or already stopped."
+    silent: true
+
+  logs:
+    desc: "Follow the development server logs"
+    cmds:
+      - tail -f {{.LOG_FILE}}
+
+  # --- Testing ---
+
+  test:
+    desc: "Runs Playwright e2e tests against local dev server"
+    cmds:
+      - task: start
+      - bun run test
+
+  test:deployed:
+    desc: "Runs e2e tests against the deployed worker ({{.DEPLOYED_URL}})"
+    summary: |
+      NOTE: Counter state is per-isolate in production. Multi-tab and
+      sequential tests may see inconsistent counts across isolates.
+      Use Workers KV or Durable Objects for production-grade state.
+
+      Usage:
+        task test:deployed                              # uses DEPLOYED_URL from Taskfile
+        task test:deployed -- https://your.workers.dev  # override with explicit URL
+        DEPLOYED_URL=https://... task test:deployed      # override via env var
+    cmds:
+      - echo "Testing against {{if .CLI_ARGS}}{{.CLI_ARGS}}{{else}}{{.DEPLOYED_URL}}{{end}}"
+      - BASE_URL={{if .CLI_ARGS}}{{.CLI_ARGS}}{{else}}{{.DEPLOYED_URL}}{{end}} bun run test
+
+  # --- Deployment ---
+
+  login:
+    desc: "Authenticates with Cloudflare (opens browser)"
+    cmds:
+      - npx wrangler login
+
+  deploy:
+    desc: "Deploys the worker to Cloudflare"
+    cmds:
+      - bun run deploy
+
+  # --- Setup ---
+
+  deps:
+    desc: "Installs all dependencies"
+    cmds:
+      - bun install
+      - bunx playwright install --with-deps chromium

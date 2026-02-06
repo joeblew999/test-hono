@@ -1,0 +1,27 @@
+{
+  "name": "test-hono",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "test": "playwright test",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240405.0",
+    "@playwright/test": "^1.58.1",
+    "@types/bun": "latest",
+    "playwright": "^1.58.1",
+    "wrangler": "^4.63.0"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@hono/swagger-ui": "^0.5.3",
+    "@hono/zod-openapi": "^1.2.1",
+    "@starfederation/datastar": "^1.0.0-RC.7",
+    "hono": "^4.11.7"
+  }
+}
