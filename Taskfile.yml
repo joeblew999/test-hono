@@ -132,6 +132,54 @@ tasks:
     cmds:
       - bun run deploy
 
+  ci:secrets:
+    desc: "Sets Cloudflare secrets in GitHub repo for CI auto-deploy"
+    summary: |
+      Extracts account ID from your local wrangler login, then sets
+      CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN as GitHub secrets.
+
+      The API token must be created manually (one-time) at:
+        https://dash.cloudflare.com/profile/api-tokens
+        → Use the "Edit Cloudflare Workers" template
+
+      Usage:
+        task ci:secrets -- YOUR_API_TOKEN
+    cmds:
+      - |
+        # Ensure logged in
+        ACCOUNT_ID=$(bunx wrangler whoami 2>/dev/null | grep -oE '[a-f0-9]{32}' | head -1)
+        if [ -z "$ACCOUNT_ID" ]; then
+          echo "Not logged in to Cloudflare. Run 'task login' first."
+          exit 1
+        fi
+
+        # Get API token from CLI args or prompt
+        API_TOKEN="{{.CLI_ARGS}}"
+        if [ -z "$API_TOKEN" ]; then
+          echo "Create an API token at:"
+          echo "  https://dash.cloudflare.com/profile/api-tokens"
+          echo "  → Use the 'Edit Cloudflare Workers' template"
+          echo ""
+          printf "Paste your API token: "
+          read -r API_TOKEN
+        fi
+
+        if [ -z "$API_TOKEN" ]; then
+          echo "No API token provided."
+          exit 1
+        fi
+
+        # Set GitHub secrets
+        echo "$ACCOUNT_ID" | gh secret set CLOUDFLARE_ACCOUNT_ID
+        echo "$API_TOKEN" | gh secret set CLOUDFLARE_API_TOKEN
+        echo ""
+        echo "GitHub secrets set:"
+        echo "  CLOUDFLARE_ACCOUNT_ID = $ACCOUNT_ID"
+        echo "  CLOUDFLARE_API_TOKEN  = (hidden)"
+        echo ""
+        echo "CI will now auto-deploy on push to main."
+    silent: true
+
   # --- Setup ---
 
   bun:install:

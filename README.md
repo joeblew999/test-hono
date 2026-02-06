@@ -39,8 +39,22 @@ task test       # run e2e tests (auto-starts server)
 task deploy     # deploy to Cloudflare Workers
 task test:deployed  # run e2e tests against deployed worker
 task login      # authenticate with Cloudflare
+task ci:secrets # set Cloudflare secrets in GitHub for CI
 task deps       # install Bun + all dependencies
 ```
+
+## CI Deployment
+
+Push-triggered CI deploys need a Cloudflare API token. One-time setup:
+
+```sh
+task login                           # authenticate locally (browser)
+# Create an API token at https://dash.cloudflare.com/profile/api-tokens
+# → Use the "Edit Cloudflare Workers" template
+task ci:secrets -- YOUR_API_TOKEN    # sets GitHub secrets automatically
+```
+
+After that, every push to `main` auto-deploys via GitHub Actions.
 
 ## Design
 
