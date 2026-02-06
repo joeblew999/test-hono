@@ -2,15 +2,29 @@ import { OpenAPIHono } from '@hono/zod-openapi'
 import { serveStatic } from 'hono/bun'
 import { mkdirSync } from 'node:fs'
 import { initDB, createD1Compat } from './db'
-import type { AppEnv, BroadcastConfig } from './types'
+import { initCorrosionDB } from './corrosion-db' // Import new Corrosion DB initializer
+import type { AppEnv, BroadcastConfig, D1Database } from './types' // Import D1Database type
 import api from './api'
 import { mountDocs } from './docs'
 
 // Initialize SQLite
 const dbPath = process.env.DB_PATH || './data/counter.db'
 mkdirSync(dbPath.substring(0, dbPath.lastIndexOf('/')), { recursive: true })
-const sqliteDb = initDB(dbPath)
-const d1 = createD1Compat(sqliteDb)
+
+let d1: D1Database;
+
+if (process.env.USE_CORROSION_DB === 'true') {
+  const corrosionAgentUrl = process.env.CORROSION_AGENT_URL;
+  if (!corrosionAgentUrl) {
+    throw new Error('CORROSION_AGENT_URL environment variable must be set when USE_CORROSION_DB is true.');
+  }
+  console.log(`Using Corrosion DB from: ${corrosionAgentUrl}`);
+  d1 = await initCorrosionDB(corrosionAgentUrl);
+} else {
+  console.log(`Using bun:sqlite DB from: ${dbPath}`);
+  const sqliteDb = initDB(dbPath);
+  d1 = createD1Compat(sqliteDb);
+}
 
 // Broadcast: persistent SSE push to all connected clients
 type Listener = (data: Record<string, unknown>) => void

@@ -4,8 +4,22 @@ primary_region = 'sjc'
 [build]
 
 [env]
-  DB_PATH = '/data/counter.db'
+  DB_PATH = '/data/counter.db' # This might become less relevant if Corrosion manages its own DB.
   PORT = '3000'
+  USE_CORROSION_DB = 'true'
+  # CORROSION_AGENT_URL should point to the internal HTTP address of the corrosion process.
+  # Assuming corrosion listens on port 8080 by default in the same VM.
+  CORROSION_AGENT_URL = 'http://localhost:8080'
+
+[processes]
+  # Main application process
+  app = 'bun run server.ts'
+  # Corrosion agent process
+  # IMPORTANT: Check superfly/corrosion documentation for correct command-line arguments.
+  # -http-addr: Address for the HTTP API. Our app connects to this.
+  # -data-dir: Directory to store its internal SQLite database and other data. Should be on a persistent volume.
+  # -join: Address of another Corrosion agent to join the cluster. This will be managed by Fly.io's internal discovery.
+  corrosion = 'corrosion -http-addr :8080 -data-dir /data/corrosion_data' # Adjust command as per Corrosion docs
 
 [http_service]
   internal_port = 3000
@@ -13,7 +27,7 @@ primary_region = 'sjc'
   auto_stop_machines = 'stop'
   auto_start_machines = true
   min_machines_running = 0
-  processes = ['app']
+  processes = ['app'] # Only the 'app' process serves HTTP traffic externally
 
 [[vm]]
   memory = '256mb'
