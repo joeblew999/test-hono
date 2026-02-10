@@ -173,24 +173,41 @@ tasks:
       - echo "Screenshots saved to docs/screenshots/"
 
   cf:videos:
-    desc: "Record test run videos as GIFs to docs/videos/"
+    desc: "Record test run videos as flat GIFs in docs/videos/"
     cmds:
       - task: cf:start
       - rm -rf docs/videos
       - mkdir -p docs/videos
       - bunx playwright test --config=playwright.videos.ts
       - |
-        echo "Converting webm → gif..."
+        echo "Converting webm → gif (flat, clean names)..."
         cd docs/videos
         for dir in */; do
           name="${dir%/}"
           webm="$dir/video.webm"
-          gif="$dir/video.gif"
-          if [ -f "$webm" ]; then
-            ffmpeg -y -i "$webm" -vf "fps=10,scale=1280:-1:flags=lanczos,palettegen" -loglevel error "/tmp/pw_palette.png"
-            ffmpeg -y -i "$webm" -i "/tmp/pw_palette.png" -lavfi "fps=10,scale=1280:-1:flags=lanczos[x];[x][1:v]paletteuse" -loglevel error "$gif"
-            rm -f "$webm" "/tmp/pw_palette.png"
-          fi
+          [ -f "$webm" ] || continue
+
+          # Derive clean name
+          clean="$name"
+          # Remove double prefix (counter-counter- → counter-, notes-notes- → notes-, auth-auth- → auth-)
+          clean=$(echo "$clean" | sed 's/^counter-counter-/counter-/' | sed 's/^notes-notes-/notes-/' | sed 's/^auth-auth-/auth-/')
+          # Remove "should-"
+          clean=$(echo "$clean" | sed 's/-should-/-/')
+          # Remove trailing "-on-click"
+          clean=$(echo "$clean" | sed 's/-on-click$//')
+          # Clean SW names (Playwright truncates + hashes these)
+          case "$name" in
+            *offline*seed*) clean="sw-offline" ;;
+            *through-SW*) clean="sw-notes-crud" ;;
+            *IndexedDB*) clean="sw-persistence" ;;
+            *real-server*) clean="sw-sync" ;;
+          esac
+
+          # Convert webm → gif (two-pass palette for quality)
+          ffmpeg -y -i "$webm" -vf "fps=10,scale=1280:-1:flags=lanczos,palettegen" -loglevel error "/tmp/pw_palette.png"
+          ffmpeg -y -i "$webm" -i "/tmp/pw_palette.png" -lavfi "fps=10,scale=1280:-1:flags=lanczos[x];[x][1:v]paletteuse" -loglevel error "${clean}.gif"
+          rm -f "/tmp/pw_palette.png"
+          rm -rf "$name"
         done
         rm -f .last-run.json
       - echo "GIFs saved to docs/videos/ ($(du -sh docs/videos | cut -f1))"
@@ -199,8 +216,7 @@ tasks:
     desc: "Record two-tab sync demo as side-by-side GIF"
     cmds:
       - task: cf:start
-      - rm -rf docs/videos/sync-tab-a docs/videos/sync-tab-b docs/videos/sync-demo
-      - mkdir -p docs/videos/sync-demo
+      - rm -rf docs/videos/sync-tab-a docs/videos/sync-tab-b
       - bunx playwright test --config=playwright.sync-demo.ts
       - |
         echo "Combining Tab A + Tab B side by side..."
@@ -208,13 +224,21 @@ tasks:
         VID_B=$(ls docs/videos/sync-tab-b/*.webm | head -1)
         ffmpeg -y -i "$VID_A" -i "$VID_B" \
           -filter_complex "[0:v][1:v]hstack=inputs=2" \
-          -loglevel error docs/videos/sync-demo/combined.webm
-        ffmpeg -y -i docs/videos/sync-demo/combined.webm -vf "fps=10,palettegen" -loglevel error /tmp/sync_palette.png
-        ffmpeg -y -i docs/videos/sync-demo/combined.webm -i /tmp/sync_palette.png \
-          -lavfi "fps=10[x];[x][1:v]paletteuse" -loglevel error docs/videos/sync-demo/video.gif
-        rm -f docs/videos/sync-demo/combined.webm /tmp/sync_palette.png
+          -loglevel error /tmp/sync_combined.webm
+        ffmpeg -y -i /tmp/sync_combined.webm -vf "fps=10,palettegen" -loglevel error /tmp/sync_palette.png
+        ffmpeg -y -i /tmp/sync_combined.webm -i /tmp/sync_palette.png \
+          -lavfi "fps=10[x];[x][1:v]paletteuse" -loglevel error docs/videos/sync-demo.gif
+        rm -f /tmp/sync_combined.webm /tmp/sync_palette.png
         rm -rf docs/videos/sync-tab-a docs/videos/sync-tab-b
-      - echo "Sync demo saved to docs/videos/sync-demo/video.gif ($(du -h docs/videos/sync-demo/video.gif | cut -f1))"
+      - echo "Sync demo: docs/videos/sync-demo.gif ($(du -h docs/videos/sync-demo.gif | cut -f1))"
+
+  cf:docs:
+    desc: "Generate all documentation assets (screenshots + videos + sync demo)"
+    cmds:
+      - task: cf:screenshots
+      - task: cf:videos
+      - task: cf:sync-demo
+      - echo "All docs generated — screenshots + videos + sync demo"
 
   cf:ci:secrets:
     desc: "Set Cloudflare API token + account ID as GitHub secrets"
@@ -301,6 +325,9 @@ tasks:
   sync-demo:
     desc: "Alias for cf:sync-demo"
     cmds: [{ task: cf:sync-demo }]
+  docs:
+    desc: "Alias for cf:docs"
+    cmds: [{ task: cf:docs }]
 
   # ╔══════════════════════════════════════════════╗
   # ║  Fly.io / Bun (fly:)                         ║

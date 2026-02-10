@@ -11,7 +11,7 @@
 - **schema.ts** — Drizzle ORM table definitions (auth + tasks) — pure, no Zod/OpenAPI
 - **validators.ts** — Zod validation schemas with `.openapi()` — shared by routes/* and mcp.ts
 - **queries.ts** — Raw D1 SQL queries (counter + notes only)
-- **sse.ts** — SSE helpers: isSSE, respond, respondFragment, respondPersistent
+- **sse.ts** — SSE helpers: isSSE, respond, respondFragment, respondPersistent, respondPersistentPolling, respondPersistentPollingFragments
 
 ### lib/ (application logic)
 - **lib/auth.ts** — Better Auth factory with admin plugin, `requireAuth` + `requireAdmin` middleware
@@ -74,7 +74,7 @@ Single set of OpenAPI routes serves both JSON and SSE:
 
 ## Tri-Mode Deployment
 
-- **Workers** (`index.ts`): D1, one-shot SSE, `api()` with no broadcast
+- **Workers** (`index.ts`): D1, persistent SSE via D1 polling (counter + notes), `api()` with no broadcast
 - **Fly.io** (`server.ts`): bun:sqlite, persistent SSE, `api(broadcastConfig)`
 - **Service Worker** (`sw/index.ts`): sql.js (SQLite WASM), local-first, opt-in via `?local` query param
 - `db/bun.ts` adapter wraps bun:sqlite to match D1Database interface
@@ -114,14 +114,34 @@ Single set of OpenAPI routes serves both JSON and SSE:
 - Use `inner` mode exclusively for list re-renders (most reliable with Idiomorph)
 - Element IDs are VITAL for Idiomorph morphing — always use `id="item-${id}"`
 
+## Persistent SSE on Workers (D1 Polling)
+
+Workers can't share I/O between requests, so persistent SSE uses D1 polling (no Durable Objects, no WebSockets):
+- `respondPersistentPolling(c, signals)` — polls counter+notes every 2s, sends signals when changed
+- `respondPersistentPollingFragments(c, initial, poll)` — same but also re-renders HTML fragments
+- Heartbeat every 30s prevents Cloudflare 524 timeout (100s idle limit)
+- `stream.onAbort()` kills polling loop when client disconnects (no zombie workers)
+- Fly.io uses push-based broadcast (in-memory `Set<Listener>`), Workers uses poll-based D1 reads
+
 ## Testing
 
-- 23 Playwright e2e tests (9 counter + 6 notes/demo + 6 auth + 2 service worker)
-- `task test` — headed + serial (real browser, ~25s, zero race conditions)
-- `task test:ci` — headless + parallel (fast, ~4s, for CI)
-- `task screenshots` — headed capture to docs/screenshots/
+- 25 Playwright e2e tests (9 counter + 6 notes/demo + 6 auth + 4 service worker)
+- 1 sync-demo test (two-tab cross-tab live sync, video-only)
+- 4 screenshot tests (3 viewports × 4 screenshots)
+- `task test` — headed + serial (real browser, ~30s)
+- `task test:ci` — headless + parallel (fast, for CI)
+- `task docs` — generate all doc assets (screenshots + videos + sync demo)
+- `task videos` — 25 per-test GIFs (flat files, clean names)
+- `task sync-demo` — two-tab side-by-side sync demo GIF
+- `task screenshots` — responsive screenshots at 3 viewports
 - `pressSequentially` not `fill` for `data-bind` inputs
 - Text-based locators (`{ hasText: 'X' }`) for Idiomorph-morphed lists
+
+### Playwright Configs
+- `playwright.config.ts` — main test suite (25 tests, excludes screenshots + sync-demo)
+- `playwright.videos.ts` — video recording of all 25 tests → `docs/videos/*.gif`
+- `playwright.screenshots.ts` — responsive screenshots → `docs/screenshots/{mobile,tablet,desktop}/`
+- `playwright.sync-demo.ts` — two-tab sync demo → `docs/videos/sync-demo.gif`
 
 ## Commands
 
@@ -131,11 +151,14 @@ Single set of OpenAPI routes serves both JSON and SSE:
 - `task sw:dev` — build SW + start dev server
 - `task test` — run 25 e2e tests headed + serial
 - `task test:ci` — run 25 e2e tests headless + parallel
+- `task docs` — generate all doc assets (screenshots + videos + sync demo)
+- `task videos` — record 25 test GIFs to docs/videos/
+- `task sync-demo` — record two-tab sync demo GIF
+- `task screenshots` — capture screenshots at 3 viewports
 - `task db:generate` — generate SQL migration from schema.ts changes (drizzle-kit)
 - `task db:studio` — open Drizzle Studio (browser DB explorer)
 - `task deploy` — deploy to Cloudflare Workers (runs remote D1 migrations)
 - `task fly:deploy` — deploy to Fly.io
-- `task screenshots` — capture headed screenshots to docs/screenshots/
 
 ## Environment Variables
 
