@@ -172,6 +172,29 @@ tasks:
       - bunx playwright test --config=playwright.screenshots.ts --headed
       - echo "Screenshots saved to docs/screenshots/"
 
+  cf:videos:
+    desc: "Record test run videos as GIFs to docs/videos/"
+    cmds:
+      - task: cf:start
+      - rm -rf docs/videos
+      - mkdir -p docs/videos
+      - bunx playwright test --config=playwright.videos.ts
+      - |
+        echo "Converting webm → gif..."
+        cd docs/videos
+        for dir in */; do
+          name="${dir%/}"
+          webm="$dir/video.webm"
+          gif="$dir/video.gif"
+          if [ -f "$webm" ]; then
+            ffmpeg -y -i "$webm" -vf "fps=10,scale=1280:-1:flags=lanczos,palettegen" -loglevel error "/tmp/pw_palette.png"
+            ffmpeg -y -i "$webm" -i "/tmp/pw_palette.png" -lavfi "fps=10,scale=1280:-1:flags=lanczos[x];[x][1:v]paletteuse" -loglevel error "$gif"
+            rm -f "$webm" "/tmp/pw_palette.png"
+          fi
+        done
+        rm -f .last-run.json
+      - echo "GIFs saved to docs/videos/ ($(du -sh docs/videos | cut -f1))"
+
   cf:ci:secrets:
     desc: "Set Cloudflare API token + account ID as GitHub secrets"
     summary: |
@@ -251,6 +274,9 @@ tasks:
   screenshots:
     desc: "Alias for cf:screenshots"
     cmds: [{ task: cf:screenshots }]
+  videos:
+    desc: "Alias for cf:videos"
+    cmds: [{ task: cf:videos }]
 
   # ╔══════════════════════════════════════════════╗
   # ║  Fly.io / Bun (fly:)                         ║
