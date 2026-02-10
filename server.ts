@@ -92,7 +92,7 @@ app.get('/login', (c) => c.redirect('/login.html'))
 
 // Demo credentials (returns empty array when DEMO_MODE off)
 app.get('/api/demo-credentials', (c) => {
-  return respond(c, { credentials: getPublicDemoCredentials(c) })
+  return respond(c, { demoCredentials: getPublicDemoCredentials(c) })
 })
 
 // Session check (SSE signals for Datastar, JSON for API clients)
