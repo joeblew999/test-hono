@@ -82,7 +82,7 @@
                 <span class="auth-user-name text-sm text-success font-medium" data-text="'Signed in as ' + $authUser"></span>
                 <span class="badge badge-primary badge-sm" data-show="$authRole === 'admin'">ADMIN</span>
                 <button class="btn btn-sm btn-ghost" data-on:click="
-                    fetch('/api/auth/sign-out', { method: 'POST' }).then(() => {
+                    fetch('/api/auth/sign-out', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).then(() => {
                         $authUser = ''; $authRole = '';
                         document.getElementById('task-list').innerHTML = '<li class=\'note-empty text-center text-base-content/50 text-sm p-3\'>Sign in to see tasks</li>';
                         var cd = document.getElementById('task-count-display');
