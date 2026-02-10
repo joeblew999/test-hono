@@ -1,5 +1,5 @@
 import { eq, and } from 'drizzle-orm'
-import { taskTable } from './schema'
+import { taskTable } from '../schema'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
 
 type TaskRow = typeof taskTable.$inferSelect
@@ -13,13 +13,13 @@ export async function listTasks(db: DrizzleD1Database, userId: string, status?: 
   return db.select().from(taskTable).where(eq(taskTable.userId, userId)).all()
 }
 
-export async function createTask(db: DrizzleD1Database, userId: string, data: { title: string; description?: string }): Promise<TaskRow> {
+export async function createTask(db: DrizzleD1Database, userId: string, data: { taskTitle: string; taskDesc?: string }): Promise<TaskRow> {
   const [task] = await db.insert(taskTable).values({
     userId,
-    title: data.title,
-    description: data.description ?? null,
+    title: data.taskTitle,
+    description: data.taskDesc || null,
   }).returning()
-  return task
+  return task!
 }
 
 export async function getTask(db: DrizzleD1Database, userId: string, taskId: number): Promise<TaskRow | undefined> {

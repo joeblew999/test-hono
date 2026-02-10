@@ -82,8 +82,8 @@ export const NotesResetSchema = z.object({
 // --- Tasks ---
 
 export const CreateTaskSchema = z.object({
-  title: z.string().min(1).openapi({ example: 'Build MCP server', description: 'Title of the task' }),
-  description: z.string().optional().openapi({ example: 'Integrate with Claude Desktop', description: 'Optional task description' }),
+  taskTitle: z.string().min(1).openapi({ example: 'Build MCP server', description: 'Title of the task' }),
+  taskDesc: z.string().optional().openapi({ example: 'Integrate with Claude Desktop', description: 'Optional task description' }),
 }).openapi('CreateTask')
 
 export const UpdateTaskSchema = z.object({
@@ -110,6 +110,10 @@ export const TaskListSchema = z.object({
 export const TaskFilterSchema = z.object({
   status: z.enum(['pending', 'in_progress', 'completed']).optional().openapi({ description: 'Filter by status' }),
 })
+
+export const TasksResetSchema = z.object({
+  taskCount: z.number().int(),
+}).openapi('TasksReset')
 
 // --- Demo ---
 

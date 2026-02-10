@@ -11,8 +11,8 @@ version: '3'
 #   task cf:dev        # Cloudflare Workers dev server (port 8787)
 #   task fly:dev       # Bun server with persistent SSE (port 3000)
 #   task sw:dev        # build Service Worker + start dev server
-#   task test          # 23 e2e tests against Workers
-#   task fly:test      # same 23 e2e tests against Bun
+#   task test          # 25 e2e tests against Workers
+#   task fly:test      # same 25 e2e tests against Bun
 #
 # All tasks are idempotent — safe to run multiple times.
 
@@ -125,13 +125,13 @@ tasks:
       - tail -f {{.CF_LOG}}
 
   cf:test:
-    desc: "Run 23 e2e tests headed + serial against Workers"
+    desc: "Run 25 e2e tests headed + serial against Workers"
     cmds:
       - task: cf:start
       - bun run test
 
   cf:test:ci:
-    desc: "Run 23 e2e tests headless + parallel (fast, for CI)"
+    desc: "Run 25 e2e tests headless + parallel (fast, for CI)"
     cmds:
       - task: cf:start
       - HEADED=0 bun run test
@@ -311,7 +311,7 @@ tasks:
       - tail -f {{.FLY_LOG}}
 
   fly:test:
-    desc: "Run 23 e2e tests against local Bun server"
+    desc: "Run 25 e2e tests against local Bun server"
     cmds:
       - task: fly:start
       - BASE_URL={{.FLY_URL}} bun run test
@@ -364,9 +364,9 @@ tasks:
   # ╚══════════════════════════════════════════════╝
 
   sw:build:
-    desc: "Bundle Service Worker (sw.ts → static/sw.js)"
+    desc: "Bundle Service Worker (sw/index.ts → static/sw.js)"
     cmds:
-      - bun build sw.ts --outfile static/sw.js --target browser --minify
+      - bun build sw/index.ts --outfile static/sw.js --target browser --minify
       - echo "Built static/sw.js ($(wc -c < static/sw.js | tr -d ' ') bytes)"
 
   sw:dev:

@@ -1,4 +1,4 @@
-import type { BroadcastConfig } from './types';
+import type { BroadcastConfig } from '../types';
 
 // Type for CR-SQLite change record, based on Corrosion's 'change' event data
 interface CrSqlChange {

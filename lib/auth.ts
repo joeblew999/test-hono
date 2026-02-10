@@ -3,9 +3,9 @@ import { admin } from 'better-auth/plugins/admin'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { drizzle as drizzleD1, drizzle } from 'drizzle-orm/d1'
 import type { Context, MiddlewareHandler } from 'hono'
-import type { AppEnv } from './types'
-import { respond } from './sse'
-import * as schema from './schema'
+import type { AppEnv } from '../types'
+import { respond } from '../sse'
+import * as schema from '../schema'
 
 /** Create a Better Auth instance per-request (D1 is only available in request context). */
 export function getAuth(c: Context<AppEnv>) {

@@ -2,13 +2,13 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StreamableHTTPTransport } from '@hono/mcp'
 import { z } from 'zod'
 import { eq } from 'drizzle-orm'
-import { getCount, increment, decrement, setCount, resetCount, listNotes, addNote, deleteNote } from './queries'
+import { getCount, increment, decrement, setCount, resetCount, listNotes, addNote, deleteNote } from '../queries'
 import { listTasks, createTask, getTask, updateTask, deleteTask } from './task-logic'
-import { userTable } from './schema'
-import { CreateTaskSchema, UpdateTaskSchema, TaskFilterSchema } from './validators'
+import { userTable } from '../schema'
+import { UpdateTaskSchema, TaskFilterSchema } from '../validators'
 import type { Context } from 'hono'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
-import type { AppEnv } from './types'
+import type { AppEnv } from '../types'
 
 type McpContext = {
   db: D1Database
@@ -92,8 +92,11 @@ export function createMcpServer(ctx: McpContext) {
     return { content: [{ type: 'text', text: JSON.stringify({ tasks, taskCount: tasks.length }) }] }
   })
 
-  mcp.tool('tasks_create', 'Create a new task', CreateTaskSchema.shape, async (input) => {
-    const task = await createTask(ctx.drizzleDb, ctx.userId, input)
+  mcp.tool('tasks_create', 'Create a new task', {
+    title: z.string().min(1).describe('Title of the task'),
+    description: z.string().optional().describe('Optional task description'),
+  }, async ({ title, description }) => {
+    const task = await createTask(ctx.drizzleDb, ctx.userId, { taskTitle: title, taskDesc: description })
     return { content: [{ type: 'text', text: JSON.stringify(task) }] }
   })
 

@@ -10,6 +10,6 @@ export default (bc?: BroadcastConfig) => {
   const app = new OpenAPIHono<AppEnv>()
   app.route('/', counterRoutes(bc))
   app.route('/', notesRoutes(bc))
-  app.route('/', tasksRoutes())
+  app.route('/', tasksRoutes(bc))
   return app
 }

@@ -1,7 +1,8 @@
 import { test, expect } from '@playwright/test';
+import { API, SEL, DEFAULT_BASE_URL } from '../constants';
 
 test.beforeEach(async ({ request }) => {
-  await request.post('/api/counter/reset');
+  await request.post(API.COUNTER_RESET);
 });
 
 test('counter should increment on click', async ({ page }) => {
@@ -107,7 +108,7 @@ test('conditional messages show/hide correctly', async ({ page }) => {
 test('server fragment loads HTML', async ({ page }) => {
   await page.goto('/');
 
-  const fragmentBox = page.locator('#server-fragment');
+  const fragmentBox = page.locator(SEL.SERVER_FRAGMENT);
   await expect(fragmentBox).toContainText('Click to load');
 
   await page.getByRole('button', { name: 'Load Fragment' }).click();
@@ -141,7 +142,7 @@ test('multi-tab: server state is shared across tabs', async ({ browser }) => {
   const page1 = await context.newPage();
   const page2 = await context.newPage();
 
-  const baseURL = test.info().project.use.baseURL || 'http://localhost:8787';
+  const baseURL = test.info().project.use.baseURL || DEFAULT_BASE_URL;
 
   await page1.goto(baseURL);
   await page2.goto(baseURL);

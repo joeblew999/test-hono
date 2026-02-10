@@ -2,25 +2,39 @@
 
 ## Architecture
 
+### Root (entry points + shared foundations)
 - **index.ts** — Cloudflare Workers entry point (auth handler, API routes, MCP endpoint)
 - **server.ts** — Bun/Fly.io entry point (persistent SSE with broadcast, auth, MCP)
-- **sw.ts** — Service Worker entry point (local-first with sql.js, opt-in via `?local`)
 - **api.ts** — Route composer: imports from routes/, accepts optional BroadcastConfig
-- **sw-api.ts** — Slim route composer for SW (counter + notes only, no auth/tasks/MCP)
-- **sqljs-adapter.ts** — sql.js → D1Database interface adapter (browser)
+- **types.ts** — Shared types: AppEnv (with auth bindings + variables), BroadcastConfig
+- **constants.ts** — API paths, DOM selectors, default base URL
+- **schema.ts** — Drizzle ORM table definitions (auth + tasks) — pure, no Zod/OpenAPI
+- **validators.ts** — Zod validation schemas with `.openapi()` — shared by routes/* and mcp.ts
+- **queries.ts** — Raw D1 SQL queries (counter + notes only)
+- **sse.ts** — SSE helpers: isSSE, respond, respondFragment, respondPersistent
+
+### lib/ (application logic)
+- **lib/auth.ts** — Better Auth factory with admin plugin, `requireAuth` + `requireAdmin` middleware
+- **lib/mcp.ts** — MCP server factory: `createMcpServer(ctx)` with 15 tools (counter, notes, tasks, admin)
+- **lib/task-logic.ts** — Pure task CRUD business logic (Drizzle, no framework coupling)
+- **lib/demo.ts** — Demo mode: seed users, data, and public credentials
+- **lib/docs.ts** — OpenAPI doc + Scalar mount helper
+
+### db/ (database adapters)
+- **db/bun.ts** — bun:sqlite → D1 adapter (Bun mode only)
+
+### sw/ (Service Worker)
+- **sw/index.ts** — Service Worker entry point (local-first with sql.js, opt-in via `?local`)
+- **sw/api.ts** — Slim route composer for SW (counter + notes only, no auth/tasks/MCP)
+- **sw/sqljs-adapter.ts** — sql.js → D1Database interface adapter (browser)
+- **sw/seed-data.ts** — Seed data constants (shared by SW and demo.ts)
+
+### routes/ (OpenAPI route handlers)
 - **routes/counter.ts** — Counter schemas, OpenAPI routes, handlers (public)
 - **routes/notes.ts** — Notes CRUD schemas, OpenAPI routes, handlers (public)
 - **routes/tasks.ts** — Tasks CRUD OpenAPI routes with auth middleware (protected)
-- **schema.ts** — Drizzle ORM table definitions (auth + tasks) — pure, no Zod/OpenAPI
-- **validators.ts** — Zod validation schemas with `.openapi()` — shared by routes/* and mcp.ts
-- **auth.ts** — Better Auth factory with admin plugin, `requireAuth` + `requireAdmin` middleware
-- **mcp.ts** — MCP server factory: `createMcpServer(ctx)` with 15 tools (counter, notes, tasks, admin)
-- **task-logic.ts** — Pure task CRUD business logic (Drizzle, no framework coupling)
-- **sse.ts** — SSE helpers: isSSE, respond, respondFragment, respondPersistent
-- **types.ts** — Shared types: AppEnv (with auth bindings + variables), BroadcastConfig
-- **queries.ts** — Raw D1 SQL queries (counter + notes only)
-- **db.ts** — bun:sqlite → D1 adapter (Bun mode only)
-- **docs.ts** — OpenAPI doc + Scalar mount helper
+
+### static/
 - **static/index.html** — Datastar showcase with auth + tasks UI
 - **static/datastar.js** — Self-hosted Datastar v1 RC.7 bundle (+ .map)
 
@@ -62,10 +76,10 @@ Single set of OpenAPI routes serves both JSON and SSE:
 
 - **Workers** (`index.ts`): D1, one-shot SSE, `api()` with no broadcast
 - **Fly.io** (`server.ts`): bun:sqlite, persistent SSE, `api(broadcastConfig)`
-- **Service Worker** (`sw.ts`): sql.js (SQLite WASM), local-first, opt-in via `?local` query param
-- `db.ts` adapter wraps bun:sqlite to match D1Database interface
-- `sqljs-adapter.ts` wraps sql.js to match D1Database interface (browser)
-- `sw-api.ts` — slim route composer (counter + notes only, no auth/tasks/MCP)
+- **Service Worker** (`sw/index.ts`): sql.js (SQLite WASM), local-first, opt-in via `?local` query param
+- `db/bun.ts` adapter wraps bun:sqlite to match D1Database interface
+- `sw/sqljs-adapter.ts` wraps sql.js to match D1Database interface (browser)
+- `sw/api.ts` — slim route composer (counter + notes only, no auth/tasks/MCP)
 - Same routes, same frontend, same 23 tests on all platforms
 
 ## Database
@@ -113,10 +127,10 @@ Single set of OpenAPI routes serves both JSON and SSE:
 
 - `task dev` — start Workers dev server with logs (port 8787)
 - `task fly:dev` — start Bun server (port 3000, persistent SSE)
-- `task sw:build` — bundle Service Worker (sw.ts → static/sw.js)
+- `task sw:build` — bundle Service Worker (sw/index.ts → static/sw.js)
 - `task sw:dev` — build SW + start dev server
-- `task test` — run 23 e2e tests headed + serial
-- `task test:ci` — run 23 e2e tests headless + parallel
+- `task test` — run 25 e2e tests headed + serial
+- `task test:ci` — run 25 e2e tests headless + parallel
 - `task db:generate` — generate SQL migration from schema.ts changes (drizzle-kit)
 - `task db:studio` — open Drizzle Studio (browser DB explorer)
 - `task deploy` — deploy to Cloudflare Workers (runs remote D1 migrations)

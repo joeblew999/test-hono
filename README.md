@@ -26,7 +26,7 @@ Hono + Datastar full-stack showcase — tri-mode deployment to Cloudflare Worker
 - **Demo mode** — pre-seeded users, counter, notes, and tasks for instant exploration
 - **Real-time broadcast** — persistent SSE on Fly.io pushes changes to all connected tabs
 - **Multi-master sync** — Corrosion (cr-sqlite) replication across Fly.io nodes
-- **23 e2e tests** — Playwright tests covering counter, notes, auth, tasks, admin, and Service Worker
+- **25 e2e tests** — Playwright tests covering counter, notes, auth, tasks, admin, and Service Worker
 
 ## Stack
 
@@ -41,7 +41,7 @@ Hono + Datastar full-stack showcase — tri-mode deployment to Cloudflare Worker
 | Serverless | [Cloudflare Workers](https://developers.cloudflare.com/workers/) (one-shot SSE) |
 | Persistent | [Fly.io](https://fly.io) + [Bun](https://bun.sh) (real-time SSE broadcast) |
 | Local-first | Service Worker + sql.js (644 KB SQLite WASM) |
-| Tests | [Playwright](https://playwright.dev) (23 e2e tests) |
+| Tests | [Playwright](https://playwright.dev) (25 e2e tests) |
 | Task runner | [Task](https://taskfile.dev) |
 
 ## Quick Start
@@ -51,7 +51,7 @@ Hono + Datastar full-stack showcase — tri-mode deployment to Cloudflare Worker
 ```sh
 task deps       # install Bun (if needed) + all dependencies
 task dev        # start Workers dev server (port 8787)
-task test       # run 23 e2e tests
+task test       # run 25 e2e tests
 ```
 
 Open http://localhost:8787 for the app, `/docs` for Scalar API docs, `/login` to sign in.
@@ -166,8 +166,8 @@ task fly:dev:corrosion    # Bun + Corrosion multi-master (port 3000)
 task sw:dev               # build Service Worker + start dev server
 
 # Testing
-task test                 # 23 e2e tests headed + serial
-task test:ci              # 23 e2e tests headless + parallel (CI)
+task test                 # 25 e2e tests headed + serial
+task test:ci              # 25 e2e tests headless + parallel (CI)
 task fly:test             # same tests against Bun server
 task cf:test:deployed     # tests against production Workers
 task fly:test:deployed    # tests against production Fly.io

@@ -1,11 +1,12 @@
 import { OpenAPIHono } from '@hono/zod-openapi'
 import type { AppEnv } from './types'
 import api from './api'
-import { mountDocs } from './docs'
-import { getAuth, requireAuth, handleSessionCheck } from './auth'
-import { handleMcpRequest } from './mcp'
-import { seedDemoUsers, seedDemoData, getPublicDemoCredentials } from './demo'
+import { mountDocs } from './lib/docs'
+import { getAuth, requireAuth, handleSessionCheck } from './lib/auth'
+import { handleMcpRequest } from './lib/mcp'
+import { seedDemoUsers, seedDemoData, getPublicDemoCredentials } from './lib/demo'
 import { respond } from './sse'
+import { DEFAULT_BASE_URL } from './constants'
 
 const app = new OpenAPIHono<AppEnv>()
 
@@ -48,7 +49,7 @@ mountDocs(app, {
   description: 'Counter API backed by Cloudflare D1 (SQLite) with a Datastar SSE frontend, MCP tools for AI agents, and Better Auth.',
   servers: [
     { url: 'https://test-hono.gedw99.workers.dev', description: 'Production' },
-    { url: 'http://localhost:8787', description: 'Local dev' },
+    { url: DEFAULT_BASE_URL, description: 'Local dev' },
   ],
 })
 

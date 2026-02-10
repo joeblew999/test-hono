@@ -1,7 +1,8 @@
 import { test, expect } from '@playwright/test';
+import { API, SEL } from '../constants';
 
 test.beforeEach(async ({ request }) => {
-  await request.post('/api/notes/reset');
+  await request.post(API.NOTES_RESET);
 });
 
 // --- Notes CRUD ---
@@ -9,7 +10,7 @@ test.beforeEach(async ({ request }) => {
 test('notes: add and display', async ({ page }) => {
   await page.goto('/');
 
-  const notesList = page.locator('#notes-list');
+  const notesList = page.locator(SEL.NOTES_LIST);
 
   // Wait for data-init to fire and load the empty list
   await expect(notesList).toContainText('No notes yet', { timeout: 5000 });
@@ -30,7 +31,7 @@ test('notes: add and display', async ({ page }) => {
 test('notes: add multiple and delete', async ({ page }) => {
   await page.goto('/');
 
-  const notesList = page.locator('#notes-list');
+  const notesList = page.locator(SEL.NOTES_LIST);
   await expect(notesList).toContainText('No notes yet', { timeout: 5000 });
 
   const input = page.locator('.notes-form input[type="text"]');
@@ -83,7 +84,7 @@ test('interval: timer ticks', async ({ page }) => {
 
 test('reactive styles: bar width changes with counter', async ({ request, page }) => {
   // Reset counter so bar starts at 0%
-  await request.post('/api/counter/reset');
+  await request.post(API.COUNTER_RESET);
   await page.goto('/');
 
   const bar = page.locator('.bar-fill');

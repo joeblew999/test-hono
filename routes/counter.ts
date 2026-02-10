@@ -3,6 +3,7 @@ import { getCount, increment, decrement, setCount, resetCount } from '../queries
 import { isSSE, respond, respondFragment, respondPersistent } from '../sse'
 import { CounterSchema, SetCountSchema, CounterFragmentSchema } from '../validators'
 import type { AppEnv, BroadcastConfig } from '../types'
+import { SEL } from '../constants'
 
 // --- Route Definitions ---
 
@@ -167,7 +168,7 @@ export default (bc?: BroadcastConfig) => {
     const html = `<div class="fragment-content"><strong class="text-xl">${count}</strong> <span class="text-xs text-base-content/50">as of ${renderedAt}</span></div>`
     return respondFragment(c, {
       signals: { count },
-      fragments: [{ selector: '#server-fragment', html }],
+      fragments: [{ selector: SEL.SERVER_FRAGMENT, html }],
       json: { count, html, renderedAt },
     })
   })

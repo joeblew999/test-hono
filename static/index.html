@@ -50,6 +50,14 @@
     </style>
 </head>
 <body class="bg-base-100">
+    <!-- Local Mode Banner (hidden by default, shown by JS when SW is active) -->
+    <div id="local-mode-banner" class="bg-primary text-primary-content text-center py-2 px-4 text-sm font-medium sticky top-0 z-50 flex items-center justify-center gap-3 flex-wrap" style="display:none">
+        <span>&#9889; Local Mode &mdash; IndexedDB persistence</span>
+        <span id="local-net-status" class="badge badge-sm badge-ghost text-primary-content border-primary-content/30"></span>
+        <span id="local-changes" class="badge badge-sm badge-ghost text-primary-content border-primary-content/30" style="display:none"></span>
+        <button id="local-sync-btn" class="btn btn-xs btn-ghost border border-primary-content/30 text-primary-content" style="display:none">Sync to Server</button>
+        <a href="/" class="btn btn-xs btn-ghost border border-primary-content/30 text-primary-content">Exit</a>
+    </div>
     <div class="max-w-4xl mx-auto px-6 py-12"
          data-signals='{"count": 0, "inputValue": 0, "lastKey": "", "isFetching": false, "newNote": "", "noteCount": 0, "noteError": "", "elapsed": 0, "debouncedText": "", "authEmail": "admin@example.com", "authPassword": "admin123", "authName": "Admin", "authUser": "", "authRole": "", "authError": "", "authMode": "signup", "taskTitle": "", "taskDesc": "", "taskFilter": "", "taskCount": 0, "taskError": ""}'
          data-computed:abscount="Math.abs($count)"
@@ -66,7 +74,7 @@
         <!-- Header -->
         <header class="text-center mb-12">
             <h1 class="text-2xl font-bold tracking-tight">Hono + Datastar Showcase</h1>
-            <p class="text-base-content/50 text-sm">Datastar v1 patterns with OpenAPI content negotiation and D1 persistence</p>
+            <p id="page-subtitle" class="text-base-content/50 text-sm">Datastar v1 patterns with OpenAPI content negotiation and D1 persistence</p>
             <div class="flex gap-2 justify-center mt-4 flex-wrap">
                 <span class="badge badge-outline badge-sm">Hono</span>
                 <span class="badge badge-outline badge-sm">Datastar v1 RC.7</span>
@@ -83,10 +91,7 @@
                 <span class="badge badge-primary badge-sm" data-show="$authRole === 'admin'">ADMIN</span>
                 <button class="btn btn-sm btn-ghost" data-on:click="
                     fetch('/api/auth/sign-out', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).then(() => {
-                        $authUser = ''; $authRole = '';
-                        document.getElementById('task-list').innerHTML = '<li class=\'note-empty text-center text-base-content/50 text-sm p-3\'>Sign in to see tasks</li>';
-                        var cd = document.getElementById('task-count-display');
-                        if (cd) cd.textContent = '0';
+                        $authUser = ''; $authRole = ''; $taskCount = 0;
                     })
                 ">Sign Out</button>
             </div>
@@ -343,102 +348,43 @@
                 Authenticated task CRUD. Same Zod schemas power both this REST API and the MCP tools for AI agents.
                 <br>
                 <span class="badge badge-sm font-mono bg-base-100 text-primary border-base-300 mr-1 mb-1">Drizzle ORM</span>
-                <span class="badge badge-sm font-mono bg-base-100 text-primary border-base-300 mr-1 mb-1">Dual-Binding</span>
+                <span class="badge badge-sm font-mono bg-base-100 text-primary border-base-300 mr-1 mb-1">@post / @patch / @delete</span>
                 <span class="badge badge-sm font-mono bg-base-100 text-primary border-base-300 mr-1 mb-1">MCP Tools</span>
             </p>
 
-            <div class="task-form flex gap-3 mb-4">
+            <form class="task-form flex gap-3 mb-4" data-on:submit="
+                if (!$taskTitle.trim()) { $taskError = 'Title is required'; return; }
+                $taskError = '';
+                @post('/api/tasks')
+            ">
                 <input type="text" class="input input-bordered flex-1" data-bind="taskTitle" placeholder="Task title...">
-                <button class="btn btn-primary" data-on:click="
-                    if (!$taskTitle.trim()) { $taskError = 'Title is required'; return; }
-                    $taskError = '';
-                    fetch('/api/tasks', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ title: $taskTitle, description: $taskDesc || undefined })
-                    }).then(r => {
-                        if (!r.ok) return r.json().then(e => { throw new Error(e.error?.message || e.error || 'Failed to create task'); });
-                        return r.json();
-                    }).then(() => {
-                        $taskTitle = ''; $taskDesc = ''; $taskError = '';
-                        fetchTasks();
-                    }).catch(e => { $taskError = e.message; })
-                ">Add Task</button>
-            </div>
+                <button type="submit" class="btn btn-primary">Add Task</button>
+            </form>
             <div class="text-sm text-error text-center" data-show="$taskError" data-text="$taskError"></div>
 
             <div class="flex gap-2 mb-4 justify-center">
                 <button class="task-filter-btn btn btn-xs btn-outline"
                         data-class:btn-primary="!$taskFilter"
-                        data-on:click="$taskFilter = ''; fetchTasks()">All</button>
+                        data-on:click="$taskFilter = ''; @get('/api/tasks')">All</button>
                 <button class="task-filter-btn btn btn-xs btn-outline"
                         data-class:btn-primary="$taskFilter === 'pending'"
-                        data-on:click="$taskFilter = 'pending'; fetchTasks()">Pending</button>
+                        data-on:click="$taskFilter = 'pending'; @get('/api/tasks?status=pending')">Pending</button>
                 <button class="task-filter-btn btn btn-xs btn-outline"
                         data-class:btn-primary="$taskFilter === 'in_progress'"
-                        data-on:click="$taskFilter = 'in_progress'; fetchTasks()">In Progress</button>
+                        data-on:click="$taskFilter = 'in_progress'; @get('/api/tasks?status=in_progress')">In Progress</button>
                 <button class="task-filter-btn btn btn-xs btn-outline"
                         data-class:btn-primary="$taskFilter === 'completed'"
-                        data-on:click="$taskFilter = 'completed'; fetchTasks()">Completed</button>
+                        data-on:click="$taskFilter = 'completed'; @get('/api/tasks?status=completed')">Completed</button>
             </div>
 
-            <ul id="task-list" class="list-none p-0">
-                <li class="note-empty text-center text-base-content/50 text-sm p-3">Loading tasks...</li>
+            <ul id="task-list" class="list-none p-0"
+                data-init="@get('/api/tasks')">
+                <li class="note-empty text-center text-base-content/50 text-sm p-3">Sign in to see tasks</li>
             </ul>
 
             <div class="text-center text-sm text-base-content/50 mt-2">
-                <span id="task-count-display">0</span> tasks
+                <span id="task-count-display" data-text="$taskCount">0</span> tasks
             </div>
-
-            <script>
-                // Task helpers (called from Datastar expressions)
-                window.fetchTasks = function() {
-                    const signals = document.querySelector('[data-signals]').__ds?.signals;
-                    const filter = signals?.taskFilter?.value || '';
-                    const url = filter ? `/api/tasks?status=${filter}` : '/api/tasks';
-                    fetch(url).then(r => {
-                        if (r.status === 401) {
-                            document.getElementById('task-list').innerHTML = '<li class="note-empty text-center text-base-content/50 text-sm p-3">Sign in to see tasks</li>';
-                            var cd = document.getElementById('task-count-display');
-                            if (cd) cd.textContent = '0';
-                            return null;
-                        }
-                        return r.json();
-                    }).then(data => {
-                        if (!data) return;
-                        const countDisplay = document.getElementById('task-count-display');
-                        if (countDisplay) countDisplay.textContent = data.taskCount;
-                        const list = document.getElementById('task-list');
-                        if (!data.tasks.length) {
-                            list.innerHTML = '<li class="note-empty text-center text-base-content/50 text-sm p-3">No tasks yet</li>';
-                            return;
-                        }
-                        list.innerHTML = data.tasks.map(t => `
-                            <li class="task-item flex items-center gap-3 px-3 py-2.5 border-b border-base-300 last:border-b-0" id="task-${t.id}">
-                                <span class="task-title flex-1 text-sm">${t.title}</span>
-                                <select onchange="updateTaskStatus(${t.id}, this.value)"
-                                        class="select select-xs select-bordered">
-                                    <option value="pending" ${t.status==='pending'?'selected':''}>Pending</option>
-                                    <option value="in_progress" ${t.status==='in_progress'?'selected':''}>In Progress</option>
-                                    <option value="completed" ${t.status==='completed'?'selected':''}>Completed</option>
-                                </select>
-                                <button class="note-delete btn btn-xs btn-ghost text-error" onclick="deleteTask(${t.id})">x</button>
-                            </li>
-                        `).join('');
-                    });
-                };
-                window.updateTaskStatus = function(id, status) {
-                    fetch(`/api/tasks/${id}`, {
-                        method: 'PATCH',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ status })
-                    }).then(() => fetchTasks());
-                };
-                window.deleteTask = function(id) {
-                    fetch(`/api/tasks/${id}`, { method: 'DELETE' }).then(() => fetchTasks());
-                };
-            </script>
-            <div data-effect="if ($authUser) { fetchTasks() }"></div>
         </section>
 
         <!-- Admin Panel (admin role only) -->
@@ -542,7 +488,6 @@
             <a href="/api/doc" class="link link-hover text-base-content/50">OpenAPI Spec</a>
             <a href="/api/counter" class="link link-hover text-base-content/50">API JSON</a>
             <a id="local-mode-link" href="?local" class="link link-hover text-base-content/50" style="display:none">Local Mode</a>
-            <span id="local-mode-badge" class="badge badge-sm badge-primary" style="display:none">Local Mode</span>
         </div>
 
     </div>
@@ -559,9 +504,67 @@
                 .catch(function(err) { console.error('SW failed:', err) });
         }
 
-        // Show local mode badge if SW is active, or show link to enable it
         if (swRegistered || isLocal) {
-            document.getElementById('local-mode-badge').style.display = '';
+            // Show prominent banner
+            document.getElementById('local-mode-banner').style.display = '';
+            // Update subtitle
+            var sub = document.getElementById('page-subtitle');
+            if (sub) sub.textContent = 'Local-first mode \u2014 all data in your browser, no server required';
+            // Hide auth bar (SW has no auth routes)
+            document.querySelectorAll('.header-auth').forEach(function(el) { el.style.display = 'none'; });
+            // Remove session check (would 404 in SW mode)
+            var sessionInit = document.querySelector('[data-init="@get(\'/api/session\')"]');
+            if (sessionInit) sessionInit.remove();
+
+            // --- Network status indicator ---
+            var netEl = document.getElementById('local-net-status');
+            function updateNetStatus() {
+                netEl.textContent = navigator.onLine ? '\u{1F7E2} Online' : '\u{1F534} Offline';
+            }
+            updateNetStatus();
+            window.addEventListener('online', updateNetStatus);
+            window.addEventListener('offline', updateNetStatus);
+
+            // --- Mutation counter polling ---
+            var changesEl = document.getElementById('local-changes');
+            var syncBtn = document.getElementById('local-sync-btn');
+            function pollStatus() {
+                fetch('/api/local/status').then(function(r) { return r.json() }).then(function(d) {
+                    if (d.mutations > 0) {
+                        changesEl.textContent = d.mutations + ' change' + (d.mutations === 1 ? '' : 's');
+                        changesEl.style.display = '';
+                        syncBtn.style.display = navigator.onLine ? '' : 'none';
+                    } else {
+                        changesEl.style.display = 'none';
+                        syncBtn.style.display = 'none';
+                    }
+                }).catch(function() {});
+            }
+            setInterval(pollStatus, 2000);
+            setTimeout(pollStatus, 500);
+
+            // --- Sync to server ---
+            syncBtn.addEventListener('click', function() {
+                syncBtn.textContent = 'Syncing\u2026';
+                syncBtn.disabled = true;
+                fetch('/api/local/sync', { method: 'POST' }).then(function(r) { return r.json() }).then(function(d) {
+                    if (d.synced) {
+                        syncBtn.textContent = '\u2714 Synced!';
+                        changesEl.style.display = 'none';
+                        setTimeout(function() {
+                            syncBtn.textContent = 'Sync to Server';
+                            syncBtn.style.display = 'none';
+                            syncBtn.disabled = false;
+                        }, 2000);
+                    } else {
+                        syncBtn.textContent = '\u2716 Failed';
+                        setTimeout(function() { syncBtn.textContent = 'Sync to Server'; syncBtn.disabled = false; }, 2000);
+                    }
+                }).catch(function() {
+                    syncBtn.textContent = '\u2716 Failed';
+                    setTimeout(function() { syncBtn.textContent = 'Sync to Server'; syncBtn.disabled = false; }, 2000);
+                });
+            });
         } else {
             document.getElementById('local-mode-link').style.display = '';
         }

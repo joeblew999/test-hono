@@ -10,12 +10,13 @@ export function isSSE(c: Context<AppEnv>): boolean {
 /** Content-negotiated response: SSE patch-signals for Datastar, JSON for API clients */
 export function respond(c: Context<AppEnv>, signals: Record<string, unknown>) {
   if (isSSE(c)) {
+    // Cast: streamSSE returns Response, but OpenAPI handlers expect TypedResponse
     return streamSSE(c, async (stream) => {
       await stream.writeSSE({
         data: `signals ${JSON.stringify(signals)}`,
         event: 'datastar-patch-signals',
       })
-    })
+    }) as any
   }
   return c.json(signals, 200)
 }
@@ -35,6 +36,7 @@ type FragmentOptions = {
 /** Content-negotiated response with HTML fragments: SSE patch-signals + patch-elements for Datastar, JSON for API clients */
 export function respondFragment(c: Context<AppEnv>, options: FragmentOptions) {
   if (isSSE(c)) {
+    // Cast: streamSSE returns Response, but OpenAPI handlers expect TypedResponse
     return streamSSE(c, async (stream) => {
       await stream.writeSSE({
         data: `signals ${JSON.stringify(options.signals)}`,
@@ -46,7 +48,7 @@ export function respondFragment(c: Context<AppEnv>, options: FragmentOptions) {
           event: 'datastar-patch-elements',
         })
       }
-    })
+    }) as any
   }
   return c.json(options.json ?? options.signals, 200)
 }
@@ -58,6 +60,7 @@ type PersistentOptions = {
 
 /** Persistent SSE: send initial data, subscribe to broadcasts, keep connection alive until client disconnects */
 export function respondPersistent(c: Context<AppEnv>, options: PersistentOptions) {
+  // Cast: streamSSE returns Response, but OpenAPI handlers expect TypedResponse
   return streamSSE(c, async (stream) => {
     await stream.writeSSE({
       data: `signals ${JSON.stringify(options.initialSignals)}`,
@@ -76,5 +79,5 @@ export function respondPersistent(c: Context<AppEnv>, options: PersistentOptions
     await new Promise<void>((resolve) => {
       stream.onAbort(() => { unsubscribe(); resolve() })
     })
-  })
+  }) as any
 }

@@ -1,16 +1,15 @@
 import { eq } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/d1'
 import type { Context } from 'hono'
-import type { AppEnv } from './types'
+import type { AppEnv } from '../types'
 import { getAuth } from './auth'
-import { userTable } from './schema'
+import { userTable } from '../schema'
 import { listTasks, createTask, updateTask } from './task-logic'
+import { getCount, setCount, listNotes, addNote } from '../queries'
+import { DEMO_CREDENTIALS, SEED_NOTES, SEED_COUNTER_VALUE, USER_TASKS, ADMIN_TASKS } from '../sw/seed-data'
 
-/** Demo credentials — intentionally public, for try-before-you-sign-up. */
-export const DEMO_CREDENTIALS = [
-  { name: 'Demo User', email: 'demo@example.com', password: 'demo1234', role: 'user' as const },
-  { name: 'Demo Admin', email: 'admin@example.com', password: 'admin1234', role: 'admin' as const },
-]
+// Re-export for consumers that already import from demo.ts
+export { DEMO_CREDENTIALS }
 
 /** Check if DEMO_MODE is enabled. */
 export function isDemoMode(c: Context<AppEnv>): boolean {
@@ -51,27 +50,6 @@ export async function seedDemoUsers(c: Context<AppEnv>) {
   }
 }
 
-const USER_TASKS = [
-  { title: 'Try the counter — click + and −', status: 'completed' },
-  { title: 'Add a new note in the Notes section', status: 'in_progress' },
-  { title: 'Check out the API docs at /docs', status: 'pending' },
-  { title: 'Test the MCP endpoint with an AI agent', status: 'pending' },
-]
-
-const ADMIN_TASKS = [
-  { title: 'Review user signups in admin panel', status: 'in_progress' },
-  { title: 'Deploy latest changes to production', status: 'completed' },
-  { title: 'Set up monitoring alerts', status: 'pending' },
-  { title: 'Update API documentation', status: 'completed' },
-]
-
-const SEED_NOTES = [
-  'Welcome to the demo! Try the counter above ↑',
-  'Notes persist in D1 (SQLite) on the server',
-  'Add ?local to the URL for offline Service Worker mode',
-  'Built with Hono + Datastar + Cloudflare Workers',
-  'Delete me — or add your own notes below',
-]
 
 /** Seed demo data: counter, notes, tasks (idempotent, requires demo users to exist). */
 export async function seedDemoData(c: Context<AppEnv>) {
@@ -80,18 +58,18 @@ export async function seedDemoData(c: Context<AppEnv>) {
   const db = c.env.DB
   const drizzleDb = drizzle(c.env.DB)
 
-  // Counter: set to 42 if still at 0
-  const count = await db.prepare('SELECT value FROM counter WHERE id = 1').first<{ value: number }>()
-  if (count?.value === 0) {
-    await db.prepare('UPDATE counter SET value = 42 WHERE id = 1').run()
-    console.log('Demo seed: counter set to 42')
+  // Counter: set to seed value if still at 0
+  const count = await getCount(db)
+  if (count === 0) {
+    await setCount(db, SEED_COUNTER_VALUE)
+    console.log(`Demo seed: counter set to ${SEED_COUNTER_VALUE}`)
   }
 
   // Notes: seed if empty
-  const { results: existingNotes } = await db.prepare('SELECT id FROM notes LIMIT 1').all()
+  const existingNotes = await listNotes(db)
   if (!existingNotes.length) {
     for (const text of SEED_NOTES) {
-      await db.prepare('INSERT INTO notes (text) VALUES (?)').bind(text).run()
+      await addNote(db, text)
     }
     console.log(`Demo seed: added ${SEED_NOTES.length} notes`)
   }
@@ -107,7 +85,7 @@ export async function seedDemoData(c: Context<AppEnv>) {
 
     const seedTasks = cred.role === 'admin' ? ADMIN_TASKS : USER_TASKS
     for (const t of seedTasks) {
-      const created = await createTask(drizzleDb, user.id, { title: t.title })
+      const created = await createTask(drizzleDb, user.id, { taskTitle: t.title })
       if (t.status !== 'pending') {
         await updateTask(drizzleDb, user.id, created.id, { status: t.status })
       }

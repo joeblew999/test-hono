@@ -4,6 +4,7 @@ import type { Note } from '../queries'
 import { isSSE, respond, respondFragment } from '../sse'
 import { NoteSchema, NotesListSchema, AddNoteSchema, DeletedNoteSchema, NotesResetSchema } from '../validators'
 import type { AppEnv, BroadcastConfig } from '../types'
+import { API, SEL } from '../constants'
 
 // --- Route Definitions ---
 
@@ -48,7 +49,7 @@ const deleteNoteRoute = createRoute({
   description: 'Deletes a note by ID. SSE response re-renders the list via fragment inner mode.',
   request: {
     params: z.object({
-      id: z.string().pipe(z.coerce.number().int()),
+      id: z.coerce.number().int(),
     }),
   },
   responses: {
@@ -76,7 +77,7 @@ const resetNotesRoute = createRoute({
 // --- Helpers ---
 
 function renderNoteItem(note: Note): string {
-  return `<li id="note-${note.id}" class="note-item flex items-center gap-3 px-3 py-2.5 border-b border-base-300 last:border-b-0"><span class="note-text flex-1 text-sm">${note.text}</span><span class="note-date text-xs text-base-content/50 whitespace-nowrap">${note.created_at}</span><button class="note-delete btn btn-xs btn-ghost text-error" data-on:click="@delete('/api/notes/${note.id}')">&times;</button></li>`
+  return `<li id="note-${note.id}" class="note-item flex items-center gap-3 px-3 py-2.5 border-b border-base-300 last:border-b-0"><span class="note-text flex-1 text-sm">${note.text}</span><span class="note-date text-xs text-base-content/50 whitespace-nowrap">${note.created_at}</span><button class="note-delete btn btn-xs btn-ghost text-error" data-on:click="@delete('${API.noteDelete(note.id)}')">&times;</button></li>`
 }
 
 // --- Handlers ---
@@ -92,7 +93,7 @@ export default (bc?: BroadcastConfig) => {
       const html = notes.map(renderNoteItem).join('') || '<li class="note-empty text-center text-base-content/50 text-sm p-3">No notes yet</li>'
       return respondFragment(c, {
         signals: { noteCount },
-        fragments: [{ selector: '#notes-list', html, mode: 'inner' }],
+        fragments: [{ selector: SEL.NOTES_LIST, html, mode: 'inner' }],
       })
     }
     return c.json({ notes, noteCount }, 200)
@@ -108,7 +109,7 @@ export default (bc?: BroadcastConfig) => {
     if (isSSE(c)) {
       return respondFragment(c, {
         signals: { noteCount, newNote: '' },
-        fragments: [{ selector: '#notes-list', html, mode: 'inner' }],
+        fragments: [{ selector: SEL.NOTES_LIST, html, mode: 'inner' }],
       })
     }
 
@@ -126,7 +127,7 @@ export default (bc?: BroadcastConfig) => {
     if (isSSE(c)) {
       return respondFragment(c, {
         signals: { noteCount },
-        fragments: [{ selector: '#notes-list', html, mode: 'inner' }],
+        fragments: [{ selector: SEL.NOTES_LIST, html, mode: 'inner' }],
       })
     }
 
