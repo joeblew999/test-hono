@@ -10,6 +10,8 @@ Hono + Datastar pattern showcase — dual-mode deployment to Cloudflare Workers 
 
 **Local (Bun + Corrosion):** http://localhost:3000 — `task fly:dev:corrosion`
 
+**Local-First (Service Worker):** http://localhost:8787/?local — runs entirely in-browser via sql.js
+
 **Cloudflare Workers:** https://test-hono.gedw99.workers.dev
 
 **Fly.io (persistent SSE):** https://test-hono-bun.fly.dev
@@ -27,7 +29,9 @@ Hono + Datastar pattern showcase — dual-mode deployment to Cloudflare Workers 
 - [Cloudflare Workers](https://developers.cloudflare.com/workers/) — serverless runtime (one-shot SSE)
 - [Fly.io](https://fly.io) + [Bun](https://bun.sh) — persistent runtime (real-time SSE broadcast)
 - [Cloudflare D1](https://developers.cloudflare.com/d1/) / bun:sqlite / [superfly/corrosion](https://github.com/joeblew999/binary-corrosion) — SQLite on various platforms with multi-master capabilities
-- [Playwright](https://playwright.dev) — end-to-end tests (same 15 tests pass on all 4 targets)
+- [Better Auth](https://www.better-auth.com) — email+password authentication with admin plugin
+- [sql.js](https://sql.js.org) — SQLite WASM for Service Worker local-first mode (644 KB)
+- [Playwright](https://playwright.dev) — end-to-end tests (23 tests pass on all targets)
 - [Task](https://taskfile.dev) — task runner
 
 ## Prerequisites
@@ -41,7 +45,7 @@ Just install [Task](https://taskfile.dev) — everything else (Bun, npm packages
 ```sh
 task deps       # install Bun (if needed) + all dependencies
 task dev        # start dev server with live logs (port 8787)
-task test       # run 15 e2e tests
+task test       # run 23 e2e tests
 task deploy     # deploy to Cloudflare Workers
 ```
 
@@ -51,7 +55,7 @@ task deploy     # deploy to Cloudflare Workers
 task deps       # install Bun (if needed) + all dependencies
 task fly:dev    # start Bun server with persistent SSE (port 3000, using bun:sqlite)
 task fly:dev:corrosion # start Bun server with persistent SSE, auto-launching local Corrosion agent (port 3000)
-task fly:test   # run same 15 e2e tests against Bun server
+task fly:test   # run same 23 e2e tests against Bun server
 task fly:deploy # deploy to Fly.io (creates app + volume if needed, now includes Corrosion agent)
 ```
 
@@ -76,7 +80,7 @@ Cloudflare Workers (index.ts)          Fly.io / Bun (server.ts)
               │    api.ts      │  ← shared routes + content negotiation
               │  queries.ts    │  ← shared SQL (D1 interface)
               │  index.html    │  ← shared Datastar frontend
-              │  15 Playwright │  ← shared tests
+              │  23 Playwright │  ← shared tests
               │    tests       │
               └────────────────┘
 ```
@@ -170,8 +174,8 @@ task            # list all commands
 task dev        # start dev server with logs (port 8787)
 task start      # start server in background
 task stop       # stop dev server
-task test       # run 15 e2e tests headed + serial (real browser)
-task test:ci    # run 15 e2e tests headless + parallel (fast, for CI)
+task test       # run 23 e2e tests headed + serial (real browser)
+task test:ci    # run 23 e2e tests headless + parallel (fast, for CI)
 task deploy     # deploy to Cloudflare Workers (runs remote migrations)
 task test:deployed  # run e2e tests against deployed worker (headless)
 
@@ -185,6 +189,10 @@ task fly:deploy # deploy to Fly.io (creates app + volume if needed, includes Cor
 task fly:test:deployed  # run e2e tests against deployed Fly.io app (headless)
 task fly:login  # authenticate with Fly.io
 task fly:launch # create Fly.io app + volume (idempotent)
+
+# Service Worker (Local-First Mode)
+task sw:build  # bundle Service Worker (sw.ts → static/sw.js)
+task sw:dev    # build SW + start Workers dev server
 
 # Corrosion Local Management
 task corrosion:install # Installs the Corrosion binary locally
@@ -255,7 +263,7 @@ The same `POST /api/counter/increment` endpoint that returns `{"count": 3}` to c
 
 The frontend is **zero-build HTML** — no JSX, no bundler, no virtual DOM. Datastar attributes (`data-text`, `data-on:click`, `data-show`, `data-computed`) make the page reactive through declarative HTML. The entire frontend is a single `index.html` with no compilation step. Add a Datastar attribute, reload the page, done.
 
-**The dual-mode breakthrough:** The same codebase deploys to both serverless (Cloudflare Workers) and persistent (Fly.io) runtimes. On Workers, SSE is one-shot — each request gets a response and the connection closes. On Fly.io, the same GET endpoint holds the connection open and broadcasts changes in real-time. The difference is a single optional parameter (`BroadcastConfig`) passed to the route factory. No `if` statements, no environment detection, no platform-specific code paths. Same routes, same frontend, same 15 tests — verified on all 4 targets (Workers local, Workers production, Bun local, Fly.io production).
+**The dual-mode breakthrough:** The same codebase deploys to both serverless (Cloudflare Workers) and persistent (Fly.io) runtimes. On Workers, SSE is one-shot — each request gets a response and the connection closes. On Fly.io, the same GET endpoint holds the connection open and broadcasts changes in real-time. The difference is a single optional parameter (`BroadcastConfig`) passed to the route factory. No `if` statements, no environment detection, no platform-specific code paths. Same routes, same frontend, same 23 tests — verified on all 4 targets (Workers local, Workers production, Bun local, Fly.io production).
 
 | Traditional SPA | This project |
 |----------------|-------------|
@@ -284,14 +292,24 @@ The frontend is **zero-build HTML** — no JSX, no bundler, no virtual DOM. Data
 ```
 index.ts          # Cloudflare Workers entry point
 server.ts         # Bun/Fly.io entry point (persistent SSE)
+sw.ts             # Service Worker entry point (local-first, sql.js)
 api.ts            # Route composer (imports from routes/)
+sw-api.ts         # Slim route composer for SW (counter + notes only)
 types.ts          # Shared types: AppEnv, BroadcastConfig, D1 compatibility types
 sse.ts            # Reusable SSE helpers: respond, respondFragment, respondPersistent
 routes/
   counter.ts      # Counter schemas, OpenAPI routes, handlers
   notes.ts        # Notes CRUD schemas, OpenAPI routes, handlers
+  tasks.ts        # Tasks CRUD with auth middleware
 queries.ts        # Shared D1-typed SQL queries
 db.ts             # bun:sqlite → D1 adapter (Bun mode only)
+sqljs-adapter.ts  # sql.js → D1 adapter (Service Worker)
+demo.ts           # Demo user + data seeding (counter, notes, tasks)
+auth.ts           # Better Auth factory + requireAuth/requireAdmin middleware
+task-logic.ts     # Task CRUD business logic (Drizzle)
+mcp.ts            # MCP server factory with 15 tools
+schema.ts         # Drizzle ORM table definitions
+validators.ts     # Zod + OpenAPI validation schemas
 corrosion-db.ts   # superfly/corrosion HTTP API → D1 adapter
 corrosion-local-manager.ts # Manages local Corrosion agent process
 corrosion-sync-manager.ts  # Polls Corrosion for changes and broadcasts via SSE
@@ -300,9 +318,14 @@ static/
   index.html      # Datastar frontend (8 sections, 20 patterns, responsive)
   datastar.js     # Self-hosted Datastar v1 RC.7
   datastar.js.map # Source map for browser debugging
+  login.html      # Auth login/signup page
+  sql-wasm.wasm   # SQLite WASM binary for Service Worker (644 KB)
+  sw.js           # Service Worker bundle (build output, gitignored)
 tests/
   counter.spec.ts     # 9 counter e2e tests
   notes.spec.ts       # 6 notes/demo e2e tests
+  auth.spec.ts        # 6 auth/tasks/admin e2e tests
+  sw.spec.ts          # 2 Service Worker e2e tests
   screenshots.spec.ts # headed screenshot capture
 docs/
   screenshots/        # auto-generated (task screenshots)

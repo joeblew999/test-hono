@@ -12,7 +12,7 @@ import { mountDocs } from './docs'
 import { getAuth, requireAuth, handleSessionCheck } from './auth'
 import { handleMcpRequest } from './mcp'
 import { CrChangesetsSchema } from './validators'
-import { seedDemoUsers, getPublicDemoCredentials } from './demo'
+import { seedDemoUsers, seedDemoData, getPublicDemoCredentials } from './demo'
 import { respond } from './sse'
 
 // Initialize SQLite
@@ -83,6 +83,7 @@ app.use('*', async (c, next) => {
   if (!demoSeeded) {
     demoSeeded = true
     await seedDemoUsers(c)
+    await seedDemoData(c)
   }
   await next()
 })

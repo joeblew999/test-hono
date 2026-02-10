@@ -4,7 +4,7 @@ import api from './api'
 import { mountDocs } from './docs'
 import { getAuth, requireAuth, handleSessionCheck } from './auth'
 import { handleMcpRequest } from './mcp'
-import { seedDemoUsers, getPublicDemoCredentials } from './demo'
+import { seedDemoUsers, seedDemoData, getPublicDemoCredentials } from './demo'
 import { respond } from './sse'
 
 const app = new OpenAPIHono<AppEnv>()
@@ -15,6 +15,7 @@ app.use('*', async (c, next) => {
   if (!demoSeeded) {
     demoSeeded = true
     await seedDemoUsers(c)
+    await seedDemoData(c)
   }
   await next()
 })
