@@ -169,7 +169,7 @@ task sw:dev               # build Service Worker + start dev server
 task test                 # 23 e2e tests headed + serial
 task test:ci              # 23 e2e tests headless + parallel (CI)
 task fly:test             # same tests against Bun server
-task test:deployed        # tests against production Workers
+task cf:test:deployed     # tests against production Workers
 task fly:test:deployed    # tests against production Fly.io
 task screenshots          # capture at 3 viewports (mobile/tablet/desktop)
 
@@ -195,7 +195,7 @@ task corrosion:stop       # stop Corrosion agent
 
 # Setup
 task deps                 # install Bun + all dependencies
-task ci:secrets           # set Cloudflare secrets in GitHub for CI
+task cf:ci:secrets        # set Cloudflare secrets in GitHub for CI
 ```
 
 ## File Structure

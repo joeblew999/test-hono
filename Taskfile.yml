@@ -1,17 +1,18 @@
 version: '3'
 
-# Hono + Datastar — Dual-mode deployment
+# Hono + Datastar — Tri-mode deployment
 #
 # Prerequisites:
 #   - task (https://taskfile.dev) — the ONLY prerequisite
 #   - Bun is auto-installed by `task deps` if not present
 #
 # Quick start:
-#   task deps        # install Bun (if needed) + all dependencies
-#   task dev         # Cloudflare Workers dev server (port 8787)
-#   task fly:dev     # Bun server with persistent SSE (port 3000)
-#   task test        # e2e tests against Workers
-#   task fly:test    # same e2e tests against Bun
+#   task deps          # install Bun + all dependencies
+#   task cf:dev        # Cloudflare Workers dev server (port 8787)
+#   task fly:dev       # Bun server with persistent SSE (port 3000)
+#   task sw:dev        # build Service Worker + start dev server
+#   task test          # 23 e2e tests against Workers
+#   task fly:test      # same 23 e2e tests against Bun
 #
 # All tasks are idempotent — safe to run multiple times.
 
@@ -34,7 +35,7 @@ vars:
   FLY_URL: http://localhost:3000
   FLY_LOG: .wrangler/bun.log
   FLY_DEPLOYED_URL: '{{.FLY_DEPLOYED_URL | default "https://test-hono-bun.fly.dev"}}'
-  # Corrosion Local Development
+  # Corrosion
   CORROSION_VERSION: "v1.0.0"
   CORROSION_DOWNLOAD_URL: "https://github.com/joeblew999/binary-corrosion/releases/download/{{.CORROSION_VERSION}}/corrosion-{{.CORROSION_VERSION}}-{{.OS}}-amd64.zip"
   CORROSION_BIN: "./bin/corrosion"
@@ -45,22 +46,50 @@ vars:
 
 tasks:
   default:
-    desc: "Lists all available tasks"
+    desc: "List all available tasks"
     cmds:
       - task --list-all
     silent: true
 
-  # --- Cloudflare Workers Development ---
+  # ╔══════════════════════════════════════════════╗
+  # ║  Setup                                       ║
+  # ╚══════════════════════════════════════════════╝
 
-  dev:
-    desc: "Starts the Workers dev server with live logs"
+  deps:
+    desc: "Install Bun (if needed) + all dependencies + Playwright"
     cmds:
-      - task: stop
-      - task: start
-      - task: logs
+      - task: bun:install
+      - |
+        export PATH="$HOME/.bun/bin:$PATH"
+        bun install
+        bunx playwright install --with-deps chromium
 
-  start:
-    desc: "Starts the Workers server in background (skips if already running)"
+  bun:install:
+    desc: "Install Bun if not already present"
+    cmds:
+      - |
+        if command -v bun &>/dev/null; then
+          echo "Bun $(bun --version) already installed"
+          exit 0
+        fi
+        echo "Installing Bun..."
+        curl -fsSL https://bun.sh/install | bash
+        echo "Bun installed to ~/.bun/bin/bun"
+    silent: true
+
+  # ╔══════════════════════════════════════════════╗
+  # ║  Cloudflare Workers (cf:)                    ║
+  # ╚══════════════════════════════════════════════╝
+
+  cf:dev:
+    desc: "Start Workers dev server with live logs (port 8787)"
+    cmds:
+      - task: cf:stop
+      - task: cf:start
+      - task: cf:logs
+
+  cf:start:
+    desc: "Start Workers server in background (skips if running)"
     cmds:
       - |
         if curl -s -o /dev/null -w '' {{.CF_URL}}/ 2>/dev/null; then
@@ -77,61 +106,48 @@ tasks:
         echo "Server ready at {{.CF_URL}}"
     silent: true
 
-  stop:
-    desc: "Stops the Workers dev server (no-op if not running)"
+  cf:stop:
+    desc: "Stop Workers dev server"
     cmds:
       - pkill -f "wrangler dev" || true
     silent: true
 
-  restart:
-    desc: "Stops and restarts the Workers dev server"
+  cf:restart:
+    desc: "Stop and restart Workers dev server"
     cmds:
-      - task: stop
+      - task: cf:stop
       - sleep 1
-      - task: start
+      - task: cf:start
 
-  logs:
-    desc: "Follow the Workers dev server logs"
+  cf:logs:
+    desc: "Follow Workers dev server logs"
     cmds:
       - tail -f {{.CF_LOG}}
 
-  # --- Cloudflare Workers Testing ---
-
-  test:
-    desc: "Runs e2e tests headed + serial (real browser, no race conditions)"
+  cf:test:
+    desc: "Run 23 e2e tests headed + serial against Workers"
     cmds:
-      - task: start
+      - task: cf:start
       - bun run test
 
-  test:ci:
-    desc: "Runs e2e tests headless + parallel (fast, for CI)"
+  cf:test:ci:
+    desc: "Run 23 e2e tests headless + parallel (fast, for CI)"
     cmds:
-      - task: start
+      - task: cf:start
       - HEADED=0 bun run test
 
-  screenshots:
-    desc: "Captures screenshots (headed browser) and saves to docs/screenshots/"
-    cmds:
-      - task: start
-      - mkdir -p docs/screenshots
-      - bunx playwright test --config=playwright.screenshots.ts --headed
-      - echo "Screenshots saved to docs/screenshots/"
-
-  test:deployed:
-    desc: "Runs e2e tests against deployed worker ({{.CF_DEPLOYED_URL}})"
+  cf:test:deployed:
+    desc: "Run e2e tests against deployed Workers ({{.CF_DEPLOYED_URL}})"
     summary: |
       Usage:
-        task test:deployed                              # uses CF_DEPLOYED_URL from Taskfile
-        task test:deployed -- https://your.workers.dev  # override with explicit URL
-        CF_DEPLOYED_URL=https://... task test:deployed   # override via env var
+        task cf:test:deployed                              # uses CF_DEPLOYED_URL
+        task cf:test:deployed -- https://your.workers.dev  # override URL
     cmds:
       - echo "Testing against {{if .CLI_ARGS}}{{.CLI_ARGS}}{{else}}{{.CF_DEPLOYED_URL}}{{end}}"
       - HEADED=0 BASE_URL={{if .CLI_ARGS}}{{.CLI_ARGS}}{{else}}{{.CF_DEPLOYED_URL}}{{end}} bun run test
 
-  # --- Cloudflare Workers Deployment ---
-
-  login:
-    desc: "Authenticates with Cloudflare (skips if already logged in)"
+  cf:login:
+    desc: "Authenticate with Cloudflare (skips if logged in)"
     cmds:
       - |
         if bunx wrangler whoami &>/dev/null; then
@@ -142,14 +158,22 @@ tasks:
         bunx wrangler login
     silent: true
 
-  deploy:
-    desc: "Deploys the worker to Cloudflare (runs remote migrations first)"
+  cf:deploy:
+    desc: "Deploy to Cloudflare Workers (runs remote migrations first)"
     cmds:
       - bunx wrangler d1 migrations apply {{.D1_DB}} --remote
       - bun run deploy
 
-  ci:secrets:
-    desc: "Creates Cloudflare API token (browser) and sets GitHub secrets"
+  cf:screenshots:
+    desc: "Capture screenshots at 3 viewports to docs/screenshots/"
+    cmds:
+      - task: cf:start
+      - mkdir -p docs/screenshots
+      - bunx playwright test --config=playwright.screenshots.ts --headed
+      - echo "Screenshots saved to docs/screenshots/"
+
+  cf:ci:secrets:
+    desc: "Set Cloudflare API token + account ID as GitHub secrets"
     summary: |
       Automates the full CI setup:
         1. Gets account ID from your local wrangler login
@@ -157,19 +181,17 @@ tasks:
         3. Sets both as GitHub secrets via gh CLI
 
       Usage:
-        task ci:secrets                    # fully automated (opens browser)
-        task ci:secrets -- YOUR_API_TOKEN  # skip browser, use existing token
+        task cf:ci:secrets                    # fully automated (opens browser)
+        task cf:ci:secrets -- YOUR_API_TOKEN  # skip browser, use existing token
     cmds:
       - |
-        # Ensure logged in to Cloudflare
         ACCOUNT_ID=$(bunx wrangler whoami 2>/dev/null | grep -oE '[a-f0-9]{32}' | head -1)
         if [ -z "$ACCOUNT_ID" ]; then
-          echo "Not logged in to Cloudflare. Run 'task login' first."
+          echo "Not logged in to Cloudflare. Run 'task cf:login' first."
           exit 1
         fi
         echo "Account ID: $ACCOUNT_ID"
 
-        # Get API token: from CLI args, or create via Playwright
         API_TOKEN="{{.CLI_ARGS}}"
         if [ -z "$API_TOKEN" ]; then
           echo ""
@@ -177,7 +199,6 @@ tasks:
           API_TOKEN=$(bun scripts/create-cf-token.ts 2>/dev/tty) || true
         fi
 
-        # Fallback: prompt user to paste
         if [ -z "$API_TOKEN" ]; then
           echo ""
           printf "Paste your API token (or Ctrl+C to abort): "
@@ -189,7 +210,6 @@ tasks:
           exit 1
         fi
 
-        # Set GitHub secrets
         echo "$ACCOUNT_ID" | gh secret set CLOUDFLARE_ACCOUNT_ID
         echo "$API_TOKEN" | gh secret set CLOUDFLARE_API_TOKEN
         echo ""
@@ -200,137 +220,44 @@ tasks:
         echo "CI will now auto-deploy on push to main."
     silent: true
 
-  # --- D1 Database ---
+  # Backward-compatible aliases (Workers was previously unprefixed)
+  dev:
+    desc: "Alias for cf:dev"
+    cmds: [{ task: cf:dev }]
+  start:
+    desc: "Alias for cf:start"
+    cmds: [{ task: cf:start }]
+  stop:
+    desc: "Alias for cf:stop"
+    cmds: [{ task: cf:stop }]
+  restart:
+    desc: "Alias for cf:restart"
+    cmds: [{ task: cf:restart }]
+  logs:
+    desc: "Alias for cf:logs"
+    cmds: [{ task: cf:logs }]
+  test:
+    desc: "Alias for cf:test"
+    cmds: [{ task: cf:test }]
+  test:ci:
+    desc: "Alias for cf:test:ci"
+    cmds: [{ task: "cf:test:ci" }]
+  deploy:
+    desc: "Alias for cf:deploy"
+    cmds: [{ task: cf:deploy }]
+  login:
+    desc: "Alias for cf:login"
+    cmds: [{ task: cf:login }]
+  screenshots:
+    desc: "Alias for cf:screenshots"
+    cmds: [{ task: cf:screenshots }]
 
-  db:create:
-    desc: "Creates the D1 database on Cloudflare (one-time setup)"
-    cmds:
-      - bunx wrangler d1 create {{.D1_DB}}
-    silent: true
-
-  db:migrate:
-    desc: "Applies D1 migrations locally"
-    cmds:
-      - bunx wrangler d1 migrations apply {{.D1_DB}} --local
-    silent: true
-
-  db:migrate:remote:
-    desc: "Applies D1 migrations to the remote database"
-    cmds:
-      - bunx wrangler d1 migrations apply {{.D1_DB}} --remote
-
-  db:seed:admin:
-    desc: "Promotes admin@example.com to admin role (local D1)"
-    cmds:
-      - bunx wrangler d1 execute {{.D1_DB}} --local --command "UPDATE user SET role = 'admin' WHERE email = 'admin@example.com';"
-      - echo "admin@example.com promoted to admin"
-
-  db:seed:admin:remote:
-    desc: "Promotes admin@example.com to admin role (remote D1)"
-    cmds:
-      - bunx wrangler d1 execute {{.D1_DB}} --remote --command "UPDATE user SET role = 'admin' WHERE email = 'admin@example.com';"
-      - echo "admin@example.com promoted to admin (remote)"
-    silent: true
-
-  # --- Drizzle Kit (schema codegen) ---
-
-  db:generate:
-    desc: "Generates a new SQL migration from schema.ts changes (drizzle-kit)"
-    cmds:
-      - npx drizzle-kit generate
-
-  db:studio:
-    desc: "Opens Drizzle Studio (browser-based DB explorer)"
-    cmds:
-      - npx drizzle-kit studio
-
-  # --- Setup ---
-
-  bun:install:
-    desc: "Installs Bun if not already present"
-    cmds:
-      - |
-        if command -v bun &>/dev/null; then
-          echo "Bun $(bun --version) already installed"
-          exit 0
-        fi
-        echo "Installing Bun..."
-        curl -fsSL https://bun.sh/install | bash
-        echo "Bun installed to ~/.bun/bin/bun"
-    silent: true
-
-  deps:
-    desc: "Installs Bun (if needed) and all dependencies"
-    cmds:
-      - task: bun:install
-      - |
-        export PATH="$HOME/.bun/bin:$PATH"
-        bun install
-        bunx playwright install --with-deps chromium
-
-  # --- Corrosion Local Development ---
-
-  corrosion:install:
-    desc: "Installs the Corrosion binary locally"
-    cmds:
-      - |
-        if command -v {{.CORROSION_BIN}} &>/dev/null; then
-          echo "Corrosion already installed at {{.CORROSION_BIN}}"
-          exit 0
-        fi
-        echo "Installing Corrosion v{{.CORROSION_VERSION}}..."
-        mkdir -p bin
-        bash scripts/install-corrosion.sh "{{.CORROSION_VERSION}}" "{{.CORROSION_DOWNLOAD_URL}}" "bin"
-        echo "Corrosion installed to {{.CORROSION_BIN}}"
-    silent: true
-
-  corrosion:start:
-    desc: "Starts the Corrosion agent in background (port {{.CORROSION_PORT}})"
-    cmds:
-      - task: corrosion:install
-      - |
-        if curl -s -o /dev/null -w '' {{.CORROSION_AGENT_URL}}/ 2>/dev/null; then
-          echo "Corrosion agent already running at {{.CORROSION_AGENT_URL}}"
-          exit 0
-        fi
-        mkdir -p {{.CORROSION_DATA_DIR}} .wrangler
-        {{.CORROSION_BIN}} -http-addr :{{.CORROSION_PORT}} -data-dir {{.CORROSION_DATA_DIR}} > {{.CORROSION_LOG}} 2>&1 &
-        for i in $(seq 1 15); do
-          curl -s -o /dev/null -w '' {{.CORROSION_AGENT_URL}}/ 2>/dev/null && break
-          sleep 1
-        done
-        echo "Corrosion agent ready at {{.CORROSION_AGENT_URL}}"
-    silent: true
-
-  corrosion:stop:
-    desc: "Stops the Corrosion agent"
-    cmds:
-      - pkill -f "{{.CORROSION_BIN}}" || true
-    silent: true
-
-  corrosion:logs:
-    desc: "Follow the Corrosion agent logs"
-    cmds:
-      - tail -f {{.CORROSION_LOG}}
-
-  # --- Service Worker (Local-First Mode) ---
-
-  sw:build:
-    desc: "Bundles Service Worker (sw.ts → static/sw.js)"
-    cmds:
-      - bun build sw.ts --outfile static/sw.js --target browser --minify
-      - echo "Built static/sw.js ($(wc -c < static/sw.js | tr -d ' ') bytes)"
-
-  sw:dev:
-    desc: "Builds SW and starts Workers dev server"
-    cmds:
-      - task: sw:build
-      - task: dev
-
-  # --- Fly.io (Bun + SQLite + Persistent SSE) ---
+  # ╔══════════════════════════════════════════════╗
+  # ║  Fly.io / Bun (fly:)                         ║
+  # ╚══════════════════════════════════════════════╝
 
   fly:dev:
-    desc: "Starts the Bun server locally (port {{.FLY_PORT}}, persistent SSE)"
+    desc: "Start Bun server with persistent SSE (port {{.FLY_PORT}})"
     cmds:
       - mkdir -p data
       - bun run server.ts
@@ -339,19 +266,17 @@ tasks:
       PORT: '{{.FLY_PORT}}'
 
   fly:dev:corrosion:
-    desc: "Starts the Bun server locally with Corrosion (port {{.FLY_PORT}}, persistent SSE)"
+    desc: "Start Bun server with Corrosion sync (port {{.FLY_PORT}})"
     cmds:
       - mkdir -p data
       - bun run server.ts
     env:
-      DB_PATH: '{{.FLY_DB_PATH}}' # Still needed for local Bun:sqlite fallback if USE_CORROSION_DB is false
+      DB_PATH: '{{.FLY_DB_PATH}}'
       PORT: '{{.FLY_PORT}}'
       USE_CORROSION_DB: 'true'
-      # CORROSION_AGENT_URL is now managed by the TypeScript code
-
 
   fly:start:
-    desc: "Starts the Bun server in background (port {{.FLY_PORT}})"
+    desc: "Start Bun server in background (skips if running)"
     cmds:
       - |
         if curl -s -o /dev/null -w '' {{.FLY_URL}}/ 2>/dev/null; then
@@ -368,37 +293,37 @@ tasks:
     silent: true
 
   fly:stop:
-    desc: "Stops the Bun server"
+    desc: "Stop Bun server"
     cmds:
       - pkill -f "bun run server.ts" || true
     silent: true
 
   fly:restart:
-    desc: "Stops and restarts the Bun server"
+    desc: "Stop and restart Bun server"
     cmds:
       - task: fly:stop
       - sleep 1
       - task: fly:start
 
   fly:logs:
-    desc: "Follow the Bun server logs"
+    desc: "Follow Bun server logs"
     cmds:
       - tail -f {{.FLY_LOG}}
 
   fly:test:
-    desc: "Runs e2e tests against local Bun server (port {{.FLY_PORT}})"
+    desc: "Run 23 e2e tests against local Bun server"
     cmds:
       - task: fly:start
       - BASE_URL={{.FLY_URL}} bun run test
 
   fly:test:deployed:
-    desc: "Runs e2e tests against deployed Fly.io app ({{.FLY_DEPLOYED_URL}})"
+    desc: "Run e2e tests against deployed Fly.io ({{.FLY_DEPLOYED_URL}})"
     cmds:
       - echo "Testing against {{if .CLI_ARGS}}{{.CLI_ARGS}}{{else}}{{.FLY_DEPLOYED_URL}}{{end}}"
       - HEADED=0 BASE_URL={{if .CLI_ARGS}}{{.CLI_ARGS}}{{else}}{{.FLY_DEPLOYED_URL}}{{end}} bun run test
 
   fly:login:
-    desc: "Authenticates with Fly.io (skips if already logged in)"
+    desc: "Authenticate with Fly.io (skips if logged in)"
     cmds:
       - |
         if fly auth whoami &>/dev/null; then
@@ -410,7 +335,7 @@ tasks:
     silent: true
 
   fly:launch:
-    desc: "Creates Fly.io app + volume (one-time setup, idempotent)"
+    desc: "Create Fly.io app + volume (one-time, idempotent)"
     cmds:
       - |
         if fly apps list --json 2>/dev/null | grep -q '"{{.FLY_APP}}"'; then
@@ -429,7 +354,101 @@ tasks:
     silent: true
 
   fly:deploy:
-    desc: "Deploys to Fly.io (creates app + volume if needed)"
+    desc: "Deploy to Fly.io (creates app + volume if needed)"
     cmds:
       - task: fly:launch
       - fly deploy
+
+  # ╔══════════════════════════════════════════════╗
+  # ║  Service Worker (sw:)                        ║
+  # ╚══════════════════════════════════════════════╝
+
+  sw:build:
+    desc: "Bundle Service Worker (sw.ts → static/sw.js)"
+    cmds:
+      - bun build sw.ts --outfile static/sw.js --target browser --minify
+      - echo "Built static/sw.js ($(wc -c < static/sw.js | tr -d ' ') bytes)"
+
+  sw:dev:
+    desc: "Build Service Worker + start Workers dev server"
+    cmds:
+      - task: sw:build
+      - task: cf:dev
+
+  # ╔══════════════════════════════════════════════╗
+  # ║  Database (db:)                              ║
+  # ╚══════════════════════════════════════════════╝
+
+  db:create:
+    desc: "Create D1 database on Cloudflare (one-time)"
+    cmds:
+      - bunx wrangler d1 create {{.D1_DB}}
+    silent: true
+
+  db:migrate:
+    desc: "Apply D1 migrations locally"
+    cmds:
+      - bunx wrangler d1 migrations apply {{.D1_DB}} --local
+    silent: true
+
+  db:migrate:remote:
+    desc: "Apply D1 migrations to remote database"
+    cmds:
+      - bunx wrangler d1 migrations apply {{.D1_DB}} --remote
+
+  db:generate:
+    desc: "Generate SQL migration from schema.ts changes (drizzle-kit)"
+    cmds:
+      - npx drizzle-kit generate
+
+  db:studio:
+    desc: "Open Drizzle Studio (browser DB explorer)"
+    cmds:
+      - npx drizzle-kit studio
+
+  # ╔══════════════════════════════════════════════╗
+  # ║  Corrosion (corrosion:)                      ║
+  # ╚══════════════════════════════════════════════╝
+
+  corrosion:install:
+    desc: "Install Corrosion binary locally"
+    cmds:
+      - |
+        if command -v {{.CORROSION_BIN}} &>/dev/null; then
+          echo "Corrosion already installed at {{.CORROSION_BIN}}"
+          exit 0
+        fi
+        echo "Installing Corrosion v{{.CORROSION_VERSION}}..."
+        mkdir -p bin
+        bash scripts/install-corrosion.sh "{{.CORROSION_VERSION}}" "{{.CORROSION_DOWNLOAD_URL}}" "bin"
+        echo "Corrosion installed to {{.CORROSION_BIN}}"
+    silent: true
+
+  corrosion:start:
+    desc: "Start Corrosion agent in background (port {{.CORROSION_PORT}})"
+    cmds:
+      - task: corrosion:install
+      - |
+        if curl -s -o /dev/null -w '' {{.CORROSION_AGENT_URL}}/ 2>/dev/null; then
+          echo "Corrosion agent already running at {{.CORROSION_AGENT_URL}}"
+          exit 0
+        fi
+        mkdir -p {{.CORROSION_DATA_DIR}} .wrangler
+        {{.CORROSION_BIN}} -http-addr :{{.CORROSION_PORT}} -data-dir {{.CORROSION_DATA_DIR}} > {{.CORROSION_LOG}} 2>&1 &
+        for i in $(seq 1 15); do
+          curl -s -o /dev/null -w '' {{.CORROSION_AGENT_URL}}/ 2>/dev/null && break
+          sleep 1
+        done
+        echo "Corrosion agent ready at {{.CORROSION_AGENT_URL}}"
+    silent: true
+
+  corrosion:stop:
+    desc: "Stop Corrosion agent"
+    cmds:
+      - pkill -f "{{.CORROSION_BIN}}" || true
+    silent: true
+
+  corrosion:logs:
+    desc: "Follow Corrosion agent logs"
+    cmds:
+      - tail -f {{.CORROSION_LOG}}
