@@ -2,27 +2,8 @@ import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
 import { listNotes, addNote, deleteNote, clearNotes } from '../queries'
 import type { Note } from '../queries'
 import { isSSE, respond, respondFragment } from '../sse'
+import { NoteSchema, NotesListSchema, AddNoteSchema, DeletedNoteSchema, NotesResetSchema } from '../validators'
 import type { AppEnv, BroadcastConfig } from '../types'
-
-// --- Schemas ---
-
-const NoteSchema = z.object({
-  id: z.number().int(),
-  text: z.string(),
-  created_at: z.string(),
-}).openapi('Note')
-
-const NotesListSchema = z.object({
-  notes: z.array(NoteSchema),
-  noteCount: z.number().int(),
-}).openapi('NotesList')
-
-const AddNoteSchema = z.object({
-  newNote: z.string().min(1).openapi({
-    example: 'Buy groceries',
-    description: 'Text of the note to add',
-  }),
-}).openapi('AddNote')
 
 // --- Route Definitions ---
 
@@ -72,7 +53,7 @@ const deleteNoteRoute = createRoute({
   },
   responses: {
     200: {
-      content: { 'application/json': { schema: z.object({ deleted: z.number().int() }).openapi('DeletedNote') } },
+      content: { 'application/json': { schema: DeletedNoteSchema } },
       description: 'Deleted note ID',
     },
   },
@@ -86,7 +67,7 @@ const resetNotesRoute = createRoute({
   description: 'Deletes all notes. Used for test isolation.',
   responses: {
     200: {
-      content: { 'application/json': { schema: z.object({ noteCount: z.number().int() }).openapi('NotesReset') } },
+      content: { 'application/json': { schema: NotesResetSchema } },
       description: 'Notes cleared',
     },
   },
@@ -95,7 +76,7 @@ const resetNotesRoute = createRoute({
 // --- Helpers ---
 
 function renderNoteItem(note: Note): string {
-  return `<li id="note-${note.id}" class="note-item"><span class="note-text">${note.text}</span><span class="note-date">${note.created_at}</span><button class="note-delete" data-on:click="@delete('/api/notes/${note.id}')">&times;</button></li>`
+  return `<li id="note-${note.id}" class="note-item flex items-center gap-3 px-3 py-2.5 border-b border-base-300 last:border-b-0"><span class="note-text flex-1 text-sm">${note.text}</span><span class="note-date text-xs text-base-content/50 whitespace-nowrap">${note.created_at}</span><button class="note-delete btn btn-xs btn-ghost text-error" data-on:click="@delete('/api/notes/${note.id}')">&times;</button></li>`
 }
 
 // --- Handlers ---
@@ -108,7 +89,7 @@ export default (bc?: BroadcastConfig) => {
     const noteCount = notes.length
 
     if (isSSE(c)) {
-      const html = notes.map(renderNoteItem).join('') || '<li class="note-empty">No notes yet</li>'
+      const html = notes.map(renderNoteItem).join('') || '<li class="note-empty text-center text-base-content/50 text-sm p-3">No notes yet</li>'
       return respondFragment(c, {
         signals: { noteCount },
         fragments: [{ selector: '#notes-list', html, mode: 'inner' }],
@@ -136,11 +117,11 @@ export default (bc?: BroadcastConfig) => {
   })
 
   app.openapi(deleteNoteRoute, async (c) => {
-    const id = Number(c.req.param('id'))
+    const { id } = c.req.valid('param')
     await deleteNote(c.env.DB, id)
     const notes = await listNotes(c.env.DB)
     const noteCount = notes.length
-    const html = notes.map(renderNoteItem).join('') || '<li class="note-empty">No notes yet</li>'
+    const html = notes.map(renderNoteItem).join('') || '<li class="note-empty text-center text-base-content/50 text-sm p-3">No notes yet</li>'
 
     if (isSSE(c)) {
       return respondFragment(c, {

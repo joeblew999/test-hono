@@ -218,7 +218,31 @@ tasks:
     desc: "Applies D1 migrations to the remote database"
     cmds:
       - bunx wrangler d1 migrations apply {{.D1_DB}} --remote
+
+  db:seed:admin:
+    desc: "Promotes admin@example.com to admin role (local D1)"
+    cmds:
+      - bunx wrangler d1 execute {{.D1_DB}} --local --command "UPDATE user SET role = 'admin' WHERE email = 'admin@example.com';"
+      - echo "admin@example.com promoted to admin"
+
+  db:seed:admin:remote:
+    desc: "Promotes admin@example.com to admin role (remote D1)"
+    cmds:
+      - bunx wrangler d1 execute {{.D1_DB}} --remote --command "UPDATE user SET role = 'admin' WHERE email = 'admin@example.com';"
+      - echo "admin@example.com promoted to admin (remote)"
     silent: true
+
+  # --- Drizzle Kit (schema codegen) ---
+
+  db:generate:
+    desc: "Generates a new SQL migration from schema.ts changes (drizzle-kit)"
+    cmds:
+      - npx drizzle-kit generate
+
+  db:studio:
+    desc: "Opens Drizzle Studio (browser-based DB explorer)"
+    cmds:
+      - npx drizzle-kit studio
 
   # --- Setup ---
 

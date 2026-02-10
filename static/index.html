@@ -1,171 +1,37 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="night">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hono + Datastar Showcase</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>🔥</text></svg>">
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@5" rel="stylesheet" type="text/css" />
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <script type="module" src="/datastar.js"></script>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: system-ui, -apple-system, sans-serif;
-            background: #0f172a;
-            color: #e2e8f0;
-            line-height: 1.6;
+    <style type="text/tailwindcss">
+        [data-theme="night"] {
+            --color-primary: oklch(65.69% 0.196 277.12);
+            --color-primary-content: oklch(98% 0.005 277.12);
         }
-        .container {
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 48px 24px;
-        }
-        header {
-            text-align: center;
-            margin-bottom: 48px;
-        }
-        header h1 {
-            font-size: 2rem;
-            font-weight: 700;
-            color: #f8fafc;
-            letter-spacing: -0.03em;
-            margin-bottom: 8px;
-        }
-        header p {
-            color: #64748b;
-            font-size: 0.95rem;
-        }
-        .stack {
-            display: flex;
-            gap: 8px;
-            justify-content: center;
-            margin-top: 16px;
-            flex-wrap: wrap;
-        }
-        .badge {
-            font-size: 0.7rem;
-            font-weight: 500;
-            padding: 3px 8px;
-            border-radius: 4px;
-            background: #1e293b;
-            color: #64748b;
-            border: 1px solid #334155;
-        }
-
-        /* Group labels */
-        .group-label {
-            font-size: 0.65rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.12em;
-            color: #475569;
-            margin: 40px 0 16px;
-            padding-left: 4px;
-        }
-        .group-label:first-of-type {
-            margin-top: 0;
-        }
-
-        /* Sections */
-        section {
-            background: #1e293b;
-            border: 1px solid #334155;
-            border-radius: 12px;
-            padding: 32px;
-            margin-bottom: 24px;
-        }
-        section h2 {
-            font-size: 1.15rem;
-            font-weight: 600;
-            color: #f8fafc;
-            margin-bottom: 4px;
-        }
-        .section-desc {
-            font-size: 0.8rem;
-            color: #64748b;
-            margin-bottom: 20px;
-            line-height: 1.5;
-        }
-        .pattern-tag {
-            display: inline-block;
-            font-size: 0.65rem;
-            font-family: ui-monospace, monospace;
-            padding: 2px 6px;
-            border-radius: 3px;
-            background: #0f172a;
-            color: #818cf8;
-            border: 1px solid #334155;
-            margin-right: 4px;
-            margin-bottom: 4px;
-        }
-
-        /* Sub-sections within a card */
-        .sub-heading {
-            font-size: 0.8rem;
-            font-weight: 600;
-            color: #94a3b8;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-top: 24px;
-            margin-bottom: 12px;
-            padding-top: 20px;
-            border-top: 1px solid #334155;
-        }
-
-        /* 2-column grid */
-        .grid-2col {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 24px;
-        }
-        @media (max-width: 640px) {
-            .grid-2col { grid-template-columns: 1fr; }
-        }
-
-        /* Counter */
+        /* Custom styles with no DaisyUI equivalent */
         .count {
             font-size: 5rem;
             font-weight: 700;
             font-variant-numeric: tabular-nums;
-            color: #f8fafc;
             line-height: 1;
             text-align: center;
             margin: 24px 0;
             transition: color 0.2s;
         }
-        .count.positive { color: #4ade80; }
-        .count.negative { color: #f87171; }
-        .count.zero { color: #64748b; }
-
-        /* Buttons */
-        .buttons {
-            display: flex;
-            gap: 12px;
-            justify-content: center;
-            flex-wrap: wrap;
-        }
-        button {
-            font-family: inherit;
-            font-size: 0.9rem;
-            font-weight: 500;
-            padding: 8px 20px;
-            border: 1px solid #475569;
-            border-radius: 8px;
-            background: #334155;
-            color: #e2e8f0;
-            cursor: pointer;
-            transition: all 0.15s;
-        }
-        button:hover { background: #475569; border-color: #64748b; }
-        button:active { transform: scale(0.97); }
-        button:disabled { opacity: 0.4; cursor: not-allowed; }
-
-        /* Indicator */
+        .count.positive { color: oklch(76.8% 0.233 142.5); }
+        .count.negative { color: oklch(70.4% 0.191 22.2); }
+        .count.zero { color: oklch(55.4% 0.046 257.4); }
         .indicator {
             display: inline-block;
             width: 8px;
             height: 8px;
             border-radius: 50%;
-            background: #818cf8;
+            background: oklch(65.69% 0.196 277.12);
             margin-left: 8px;
             animation: pulse 0.6s ease-in-out infinite;
             vertical-align: middle;
@@ -174,270 +40,18 @@
             0%, 100% { opacity: 1; }
             50% { opacity: 0.3; }
         }
-
-        /* Set value input */
-        .set-value-row {
-            display: flex;
-            gap: 12px;
-            align-items: center;
-            justify-content: center;
-        }
-        input[type="number"] {
-            font-family: inherit;
-            font-size: 1rem;
-            padding: 8px 12px;
-            border: 1px solid #475569;
-            border-radius: 8px;
-            background: #0f172a;
-            color: #f8fafc;
-            width: 120px;
-            text-align: center;
-        }
-        input[type="number"]:focus {
-            outline: none;
-            border-color: #818cf8;
-        }
-
-        /* Keyboard hints */
-        kbd {
-            display: inline-block;
-            font-family: ui-monospace, monospace;
-            font-size: 0.8rem;
-            padding: 2px 8px;
-            border-radius: 4px;
-            background: #0f172a;
-            border: 1px solid #475569;
-            color: #e2e8f0;
-        }
-        .shortcut-list {
-            display: flex;
-            gap: 24px;
-            justify-content: center;
-            flex-wrap: wrap;
-        }
-        .shortcut-item {
-            font-size: 0.85rem;
-            color: #94a3b8;
-        }
-
-        /* Messages */
-        .message {
-            padding: 8px 12px;
-            border-radius: 6px;
-            font-size: 0.85rem;
-            margin-bottom: 8px;
-            border-left: 3px solid;
-        }
-        .message:last-child { margin-bottom: 0; }
-        .message.green { background: #052e16; border-color: #4ade80; color: #86efac; }
-        .message.red { background: #2a0a0a; border-color: #f87171; color: #fca5a5; }
-        .message.blue { background: #0c1a3a; border-color: #60a5fa; color: #93c5fd; }
-        .message.gray { background: #1a1a2e; border-color: #64748b; color: #94a3b8; }
-
-        /* Values grid */
-        .values-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 12px;
-        }
-        @media (max-width: 640px) {
-            .values-grid { grid-template-columns: 1fr; }
-        }
-        .value-card {
-            background: #0f172a;
-            border: 1px solid #334155;
-            border-radius: 8px;
-            padding: 12px;
-            text-align: center;
-        }
-        .value-card .label {
-            font-size: 0.7rem;
-            color: #64748b;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-bottom: 4px;
-        }
-        .value-card .value {
-            font-size: 1.5rem;
-            font-weight: 600;
-            color: #f8fafc;
-            font-variant-numeric: tabular-nums;
-        }
-
-        /* Progress bar */
-        .bar-track {
-            background: #0f172a;
-            border: 1px solid #334155;
-            border-radius: 8px;
-            height: 32px;
-            overflow: hidden;
-        }
-        .bar-fill {
-            height: 100%;
-            border-radius: 7px;
-            transition: width 0.3s, background-color 0.3s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.75rem;
-            font-weight: 600;
-            color: #f8fafc;
-            min-width: 24px;
-        }
-
-        /* Server fragment */
-        .fragment-box {
-            background: #0f172a;
-            border: 1px solid #334155;
-            border-radius: 8px;
-            padding: 16px;
-            text-align: center;
-            min-height: 48px;
-        }
-        .fragment-content strong {
-            font-size: 1.2rem;
-            color: #f8fafc;
-        }
-        .fragment-content span {
-            font-size: 0.75rem;
-            color: #64748b;
-        }
-
-        /* Notes */
-        .notes-form {
-            display: flex;
-            gap: 12px;
-            margin-bottom: 16px;
-        }
-        .notes-form input[type="text"] {
-            font-family: inherit;
-            font-size: 0.9rem;
-            padding: 8px 12px;
-            border: 1px solid #475569;
-            border-radius: 8px;
-            background: #0f172a;
-            color: #f8fafc;
-            flex: 1;
-        }
-        .notes-form input[type="text"]:focus {
-            outline: none;
-            border-color: #818cf8;
-        }
-        .notes-list {
-            list-style: none;
-            padding: 0;
-        }
-        .note-item {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 10px 12px;
-            border-bottom: 1px solid #334155;
-        }
-        .note-item:last-child { border-bottom: none; }
-        .note-text {
-            flex: 1;
-            font-size: 0.9rem;
-        }
-        .note-date {
-            font-size: 0.7rem;
-            color: #64748b;
-            white-space: nowrap;
-        }
-        .note-delete {
-            font-size: 1.1rem;
-            padding: 2px 8px;
-            border: 1px solid #475569;
-            border-radius: 4px;
-            background: transparent;
-            color: #f87171;
-            cursor: pointer;
-            line-height: 1;
-        }
-        .note-delete:hover { background: #2a0a0a; border-color: #f87171; }
-        .note-empty {
-            padding: 12px;
-            text-align: center;
-            color: #64748b;
-            font-size: 0.85rem;
-        }
-
-        /* Clock */
         .clock-display {
             font-size: 2.5rem;
             font-weight: 700;
             font-variant-numeric: tabular-nums;
             text-align: center;
-            color: #f8fafc;
             letter-spacing: 0.05em;
         }
-        .elapsed {
-            text-align: center;
-            font-size: 0.85rem;
-            color: #64748b;
-            margin-top: 8px;
-        }
-
-        /* Debounce */
-        .debounce-row {
-            display: flex;
-            gap: 16px;
-            align-items: center;
-        }
-        .debounce-row input[type="text"] {
-            font-family: inherit;
-            font-size: 0.9rem;
-            padding: 8px 12px;
-            border: 1px solid #475569;
-            border-radius: 8px;
-            background: #0f172a;
-            color: #f8fafc;
-            flex: 1;
-        }
-        .debounce-row input[type="text"]:focus {
-            outline: none;
-            border-color: #818cf8;
-        }
-        .debounce-output {
-            font-size: 0.9rem;
-            color: #94a3b8;
-            min-width: 120px;
-        }
-
-        /* Signal inspector */
-        .inspector-pre {
-            background: #0f172a;
-            border: 1px solid #334155;
-            border-radius: 8px;
-            padding: 16px;
-            font-family: ui-monospace, monospace;
-            font-size: 0.75rem;
-            color: #94a3b8;
-            overflow-x: auto;
-            max-height: 300px;
-            overflow-y: auto;
-            line-height: 1.5;
-        }
-
-        /* Links */
-        .links {
-            display: flex;
-            gap: 16px;
-            justify-content: center;
-            font-size: 0.85rem;
-            margin-top: 32px;
-        }
-        .links a {
-            color: #64748b;
-            text-decoration: none;
-            transition: color 0.15s;
-        }
-        .links a:hover { color: #94a3b8; }
     </style>
 </head>
-<body>
-    <div class="container"
-         data-signals='{"count": 0, "inputValue": 0, "lastKey": "", "isFetching": false, "newNote": "", "noteCount": 0, "elapsed": 0, "debouncedText": ""}'
+<body class="bg-base-100">
+    <div class="max-w-4xl mx-auto px-6 py-12"
+         data-signals='{"count": 0, "inputValue": 0, "lastKey": "", "isFetching": false, "newNote": "", "noteCount": 0, "noteError": "", "elapsed": 0, "debouncedText": "", "authEmail": "admin@example.com", "authPassword": "admin123", "authName": "Admin", "authUser": "", "authRole": "", "authError": "", "authMode": "signup", "taskTitle": "", "taskDesc": "", "taskFilter": "", "taskCount": 0, "taskError": ""}'
          data-computed:abscount="Math.abs($count)"
          data-computed:parity="$count % 2 === 0 ? 'even' : 'odd'"
          data-computed:sign="$count > 0 ? 'positive' : $count < 0 ? 'negative' : 'zero'"
@@ -450,40 +64,62 @@
     >
 
         <!-- Header -->
-        <header>
-            <h1>Hono + Datastar Showcase</h1>
-            <p>Datastar v1 patterns with OpenAPI content negotiation and D1 persistence</p>
-            <div class="stack">
-                <span class="badge">Hono</span>
-                <span class="badge">Datastar v1 RC.7</span>
-                <span class="badge">Cloudflare D1</span>
-                <span class="badge">Workers</span>
-                <span class="badge">OpenAPI 3.1</span>
+        <header class="text-center mb-12">
+            <h1 class="text-2xl font-bold tracking-tight">Hono + Datastar Showcase</h1>
+            <p class="text-base-content/50 text-sm">Datastar v1 patterns with OpenAPI content negotiation and D1 persistence</p>
+            <div class="flex gap-2 justify-center mt-4 flex-wrap">
+                <span class="badge badge-outline badge-sm">Hono</span>
+                <span class="badge badge-outline badge-sm">Datastar v1 RC.7</span>
+                <span class="badge badge-outline badge-sm">Cloudflare D1</span>
+                <span class="badge badge-outline badge-sm">Workers</span>
+                <span class="badge badge-outline badge-sm">OpenAPI 3.1</span>
+                <span class="badge badge-outline badge-sm">Better Auth</span>
+                <span class="badge badge-outline badge-sm">MCP</span>
+                <span class="badge badge-outline badge-sm">Drizzle ORM</span>
+            </div>
+            <!-- Auth bar: signed-in state or sign-in link -->
+            <div class="header-auth flex items-center justify-center gap-3 mt-3" data-show="$authUser">
+                <span class="auth-user-name text-sm text-success font-medium" data-text="'Signed in as ' + $authUser"></span>
+                <span class="badge badge-primary badge-sm" data-show="$authRole === 'admin'">ADMIN</span>
+                <button class="btn btn-sm btn-ghost" data-on:click="
+                    fetch('/api/auth/sign-out', { method: 'POST' }).then(() => {
+                        $authUser = ''; $authRole = '';
+                        document.getElementById('task-list').innerHTML = '<li class=\'note-empty text-center text-base-content/50 text-sm p-3\'>Sign in to see tasks</li>';
+                        var cd = document.getElementById('task-count-display');
+                        if (cd) cd.textContent = '0';
+                    })
+                ">Sign Out</button>
+            </div>
+            <div class="header-auth flex items-center justify-center gap-3 mt-3" data-show="!$authUser">
+                <a href="/login" class="link link-primary text-sm font-medium">Sign In</a>
             </div>
         </header>
+
+        <!-- Check auth session on page load -->
+        <div data-init="@get('/api/session')"></div>
 
         <!-- ═══════════════════════════════════════ -->
         <!--  GROUP 1: COUNTER                       -->
         <!-- ═══════════════════════════════════════ -->
-        <div class="group-label">Counter</div>
+        <div class="text-xs font-semibold uppercase tracking-widest text-base-content/40 mb-4 pl-1">Counter</div>
 
         <!-- Counter: main display + controls -->
-        <section>
-            <h2>Counter
+        <section class="card card-border bg-base-200 p-8 mb-6">
+            <h2 class="text-lg font-semibold">Counter
                 <span class="indicator" data-show="$isFetching"></span>
             </h2>
-            <p class="section-desc">
+            <p class="text-sm text-base-content/50 mb-5 leading-relaxed">
                 The core counter backed by D1 (SQLite). Every action is an atomic SQL update.
                 <br>
-                <span class="pattern-tag">data-signals</span>
-                <span class="pattern-tag">data-text</span>
-                <span class="pattern-tag">data-on:click</span>
-                <span class="pattern-tag">data-init</span>
-                <span class="pattern-tag">data-class</span>
-                <span class="pattern-tag">data-show</span>
-                <span class="pattern-tag">data-attr</span>
-                <span class="pattern-tag">data-bind</span>
-                <span class="pattern-tag">data-on:keydown.window</span>
+                <span class="badge badge-sm font-mono bg-base-100 text-primary border-base-300 mr-1 mb-1">data-signals</span>
+                <span class="badge badge-sm font-mono bg-base-100 text-primary border-base-300 mr-1 mb-1">data-text</span>
+                <span class="badge badge-sm font-mono bg-base-100 text-primary border-base-300 mr-1 mb-1">data-on:click</span>
+                <span class="badge badge-sm font-mono bg-base-100 text-primary border-base-300 mr-1 mb-1">data-init</span>
+                <span class="badge badge-sm font-mono bg-base-100 text-primary border-base-300 mr-1 mb-1">data-class</span>
+                <span class="badge badge-sm font-mono bg-base-100 text-primary border-base-300 mr-1 mb-1">data-show</span>
+                <span class="badge badge-sm font-mono bg-base-100 text-primary border-base-300 mr-1 mb-1">data-attr</span>
+                <span class="badge badge-sm font-mono bg-base-100 text-primary border-base-300 mr-1 mb-1">data-bind</span>
+                <span class="badge badge-sm font-mono bg-base-100 text-primary border-base-300 mr-1 mb-1">data-on:keydown.window</span>
             </p>
 
             <div class="count"
@@ -493,90 +129,90 @@
                  data-class:zero="$count === 0"
             ></div>
 
-            <div class="buttons">
-                <button data-on:click="@post('/api/counter/decrement')"
+            <div class="flex gap-3 justify-center flex-wrap">
+                <button class="btn btn-outline" data-on:click="@post('/api/counter/decrement')"
                         data-attr:disabled="$isFetching">
                     &minus; Decrement
                 </button>
-                <button data-on:click="@post('/api/counter/increment')"
+                <button class="btn btn-outline" data-on:click="@post('/api/counter/increment')"
                         data-attr:disabled="$isFetching">
                     + Increment
                 </button>
             </div>
 
             <!-- Set Value -->
-            <div class="sub-heading">Set Value</div>
-            <div class="set-value-row">
-                <input type="number" data-bind="inputValue" placeholder="0">
-                <button data-on:click="@post('/api/counter/set')">
+            <div class="text-xs font-semibold uppercase tracking-wide text-base-content/60 mt-6 mb-3 pt-5 border-t border-base-300">Set Value</div>
+            <div class="flex gap-3 items-center justify-center">
+                <input type="number" class="input input-bordered w-30 text-center" data-bind="inputValue" placeholder="0">
+                <button class="btn btn-outline" data-on:click="@post('/api/counter/set')">
                     Set Counter
                 </button>
             </div>
 
             <!-- Keyboard Shortcuts -->
-            <div class="sub-heading">Keyboard Shortcuts</div>
-            <div class="shortcut-list">
-                <span class="shortcut-item"><kbd>+</kbd> Increment</span>
-                <span class="shortcut-item"><kbd>-</kbd> Decrement</span>
-                <span class="shortcut-item"><kbd>0</kbd> Reset</span>
+            <div class="text-xs font-semibold uppercase tracking-wide text-base-content/60 mt-6 mb-3 pt-5 border-t border-base-300">Keyboard Shortcuts</div>
+            <div class="flex gap-6 justify-center flex-wrap">
+                <span class="text-sm text-base-content/60"><kbd class="kbd kbd-sm">+</kbd> Increment</span>
+                <span class="text-sm text-base-content/60"><kbd class="kbd kbd-sm">-</kbd> Decrement</span>
+                <span class="text-sm text-base-content/60"><kbd class="kbd kbd-sm">0</kbd> Reset</span>
             </div>
-            <div style="text-align: center; font-size: 0.85rem; color: #94a3b8; margin-top: 8px;">
+            <div class="text-center text-sm text-base-content/60 mt-2">
                 Last key: <strong data-text="$lastKey || 'none'"></strong>
             </div>
         </section>
 
         <!-- Counter Insights: computed + messages + reactive bar -->
-        <section>
-            <h2>Counter Insights</h2>
-            <p class="section-desc">
+        <section class="card card-border bg-base-200 p-8 mb-6">
+            <h2 class="text-lg font-semibold">Counter Insights</h2>
+            <p class="text-sm text-base-content/50 mb-5 leading-relaxed">
                 Derived values, conditional messages, and reactive styles — all driven by the counter signal.
                 <br>
-                <span class="pattern-tag">data-computed</span>
-                <span class="pattern-tag">data-show</span>
-                <span class="pattern-tag">data-style</span>
+                <span class="badge badge-sm font-mono bg-base-100 text-primary border-base-300 mr-1 mb-1">data-computed</span>
+                <span class="badge badge-sm font-mono bg-base-100 text-primary border-base-300 mr-1 mb-1">data-show</span>
+                <span class="badge badge-sm font-mono bg-base-100 text-primary border-base-300 mr-1 mb-1">data-style</span>
             </p>
 
             <!-- Computed Values -->
-            <div class="values-grid">
-                <div class="value-card">
-                    <div class="label">Absolute</div>
-                    <div class="value" data-text="$abscount"></div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div class="bg-base-100 border border-base-300 rounded-lg p-3 text-center">
+                    <div class="text-xs text-base-content/50 uppercase tracking-wide mb-1">Absolute</div>
+                    <div class="text-2xl font-semibold tabular-nums" data-text="$abscount"></div>
                 </div>
-                <div class="value-card">
-                    <div class="label">Parity</div>
-                    <div class="value" data-text="$parity"></div>
+                <div class="bg-base-100 border border-base-300 rounded-lg p-3 text-center">
+                    <div class="text-xs text-base-content/50 uppercase tracking-wide mb-1">Parity</div>
+                    <div class="text-2xl font-semibold tabular-nums" data-text="$parity"></div>
                 </div>
-                <div class="value-card">
-                    <div class="label">Sign</div>
-                    <div class="value" data-text="$sign"></div>
+                <div class="bg-base-100 border border-base-300 rounded-lg p-3 text-center">
+                    <div class="text-xs text-base-content/50 uppercase tracking-wide mb-1">Sign</div>
+                    <div class="text-2xl font-semibold tabular-nums" data-text="$sign"></div>
                 </div>
             </div>
 
             <!-- Conditional Messages -->
-            <div class="sub-heading">Messages</div>
-            <div class="message green" data-show="$count > 0">
+            <div class="text-xs font-semibold uppercase tracking-wide text-base-content/60 mt-6 mb-3 pt-5 border-t border-base-300">Messages</div>
+            <div class="message green alert alert-success text-sm mb-2" data-show="$count > 0">
                 Counter is positive
             </div>
-            <div class="message red" data-show="$count < 0">
+            <div class="message red alert alert-error text-sm mb-2" data-show="$count < 0">
                 Counter is negative
             </div>
-            <div class="message gray" data-show="$count === 0">
+            <div class="message gray alert text-sm mb-2" data-show="$count === 0">
                 Counter is zero
             </div>
-            <div class="message blue" data-show="$count % 2 === 0">
+            <div class="message blue alert alert-info text-sm mb-2" data-show="$count % 2 === 0">
                 Even number
             </div>
 
             <!-- Reactive Progress Bar -->
-            <div class="sub-heading">Progress Bar</div>
-            <div class="bar-track">
-                <div class="bar-fill"
+            <div class="text-xs font-semibold uppercase tracking-wide text-base-content/60 mt-6 mb-3 pt-5 border-t border-base-300">Progress Bar</div>
+            <div class="bg-base-100 border border-base-300 rounded-lg h-8 overflow-hidden">
+                <div class="bar-fill h-full rounded-lg transition-all duration-300 flex items-center justify-center text-xs font-semibold min-w-6"
                      data-style:width="Math.min(Math.abs($count) * 10, 100) + '%'"
                      data-style:background-color="$count > 0 ? '#4ade80' : $count < 0 ? '#f87171' : '#64748b'"
                      data-text="Math.min(Math.abs($count) * 10, 100) + '%'">
                 </div>
             </div>
-            <div style="text-align: center; font-size: 0.8rem; color: #64748b; margin-top: 8px;">
+            <div class="text-center text-sm text-base-content/50 mt-2">
                 Each count = 10% width (capped at 100%)
             </div>
         </section>
@@ -584,32 +220,37 @@
         <!-- ═══════════════════════════════════════ -->
         <!--  GROUP 2: NOTES                         -->
         <!-- ═══════════════════════════════════════ -->
-        <div class="group-label">Notes</div>
+        <div class="text-xs font-semibold uppercase tracking-widest text-base-content/40 mt-10 mb-4 pl-1">Notes</div>
 
         <!-- Notes CRUD -->
-        <section>
-            <h2>Notes
+        <section class="card card-border bg-base-200 p-8 mb-6">
+            <h2 class="text-lg font-semibold">Notes
                 <span class="indicator" data-show="$isFetching"></span>
             </h2>
-            <p class="section-desc">
+            <p class="text-sm text-base-content/50 mb-5 leading-relaxed">
                 Full CRUD with server-rendered list items. Form submit creates; delete button removes. Server re-renders the full list on each mutation — no client-side templating.
                 <br>
-                <span class="pattern-tag">@post</span>
-                <span class="pattern-tag">@delete</span>
-                <span class="pattern-tag">datastar-patch-elements</span>
+                <span class="badge badge-sm font-mono bg-base-100 text-primary border-base-300 mr-1 mb-1">@post</span>
+                <span class="badge badge-sm font-mono bg-base-100 text-primary border-base-300 mr-1 mb-1">@delete</span>
+                <span class="badge badge-sm font-mono bg-base-100 text-primary border-base-300 mr-1 mb-1">datastar-patch-elements</span>
             </p>
 
-            <form class="notes-form" data-on:submit="@post('/api/notes')">
-                <input type="text" data-bind="newNote" placeholder="Add a note...">
-                <button type="submit">Add</button>
+            <form class="notes-form flex gap-3 mb-4" data-on:submit="
+                if (!$newNote.trim()) { $noteError = 'Note cannot be empty'; return; }
+                $noteError = '';
+                @post('/api/notes')
+            ">
+                <input type="text" class="input input-bordered flex-1" data-bind="newNote" placeholder="Add a note...">
+                <button type="submit" class="btn btn-primary">Add</button>
             </form>
+            <div class="text-sm text-error text-center" data-show="$noteError" data-text="$noteError"></div>
 
-            <ul id="notes-list" class="notes-list"
+            <ul id="notes-list" class="list-none p-0"
                 data-init="@get('/api/notes')">
-                <li class="note-empty">Loading...</li>
+                <li class="note-empty text-center text-base-content/50 text-sm p-3">Loading...</li>
             </ul>
 
-            <div style="text-align: center; font-size: 0.8rem; color: #64748b; margin-top: 8px;">
+            <div class="text-center text-sm text-base-content/50 mt-2">
                 <span data-text="$noteCount"></span> notes
             </div>
         </section>
@@ -617,47 +258,47 @@
         <!-- ═══════════════════════════════════════ -->
         <!--  GROUP 3: MORE PATTERNS                 -->
         <!-- ═══════════════════════════════════════ -->
-        <div class="group-label">More Patterns</div>
+        <div class="text-xs font-semibold uppercase tracking-widest text-base-content/40 mt-10 mb-4 pl-1">More Patterns</div>
 
-        <div class="grid-2col">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <!-- Server Fragment + Side Effects -->
-            <section style="margin-bottom: 0;">
-                <h2>Server Fragment</h2>
-                <p class="section-desc">
-                    Server renders HTML via SSE <code>datastar-patch-elements</code>. Datastar patches it into the DOM using Idiomorph.
+            <section class="card card-border bg-base-200 p-8 mb-0">
+                <h2 class="text-lg font-semibold">Server Fragment</h2>
+                <p class="text-sm text-base-content/50 mb-5 leading-relaxed">
+                    Server renders HTML via SSE <code class="text-primary">datastar-patch-elements</code>. Datastar patches it into the DOM using Idiomorph.
                     <br>
-                    <span class="pattern-tag">datastar-patch-elements</span>
-                    <span class="pattern-tag">data-effect</span>
+                    <span class="badge badge-sm font-mono bg-base-100 text-primary border-base-300 mr-1 mb-1">datastar-patch-elements</span>
+                    <span class="badge badge-sm font-mono bg-base-100 text-primary border-base-300 mr-1 mb-1">data-effect</span>
                 </p>
 
-                <div class="fragment-box" id="server-fragment">
-                    <span style="color: #64748b; font-size: 0.85rem;">Click to load server-rendered fragment</span>
+                <div class="bg-base-100 border border-base-300 rounded-lg p-4 text-center min-h-12" id="server-fragment">
+                    <span class="text-base-content/50 text-sm">Click to load server-rendered fragment</span>
                 </div>
-                <div class="buttons" style="margin-top: 12px;">
-                    <button data-on:click="@get('/api/counter/fragment')">
+                <div class="flex gap-3 justify-center mt-3">
+                    <button class="btn btn-outline" data-on:click="@get('/api/counter/fragment')">
                         Load Fragment
                     </button>
                 </div>
 
                 <div data-effect="document.title = `Count: ${$count} | Hono + Datastar`"></div>
-                <div style="text-align: center; font-size: 0.8rem; color: #64748b; margin-top: 16px; padding-top: 16px; border-top: 1px solid #334155;">
+                <div class="text-center text-sm text-base-content/50 mt-4 pt-4 border-t border-base-300">
                     Side effect: the browser tab title updates with the count.
                 </div>
             </section>
 
             <!-- Interval Timer -->
-            <section style="margin-bottom: 0;">
-                <h2>Interval Timer</h2>
-                <p class="section-desc">
+            <section class="card card-border bg-base-200 p-8 mb-0">
+                <h2 class="text-lg font-semibold">Interval Timer</h2>
+                <p class="text-sm text-base-content/50 mb-5 leading-relaxed">
                     Client-side clock that ticks every second. No server requests — pure reactive interval.
                     <br>
-                    <span class="pattern-tag">data-on-interval</span>
-                    <span class="pattern-tag">.duration</span>
+                    <span class="badge badge-sm font-mono bg-base-100 text-primary border-base-300 mr-1 mb-1">data-on-interval</span>
+                    <span class="badge badge-sm font-mono bg-base-100 text-primary border-base-300 mr-1 mb-1">.duration</span>
                 </p>
 
                 <div data-on-interval__duration.1s="$elapsed++">
                     <div class="clock-display" data-text="new Date().toLocaleTimeString()"></div>
-                    <div class="elapsed">
+                    <div class="text-center text-sm text-base-content/50 mt-2">
                         Page open for <strong data-text="$elapsed"></strong> seconds
                     </div>
                 </div>
@@ -665,46 +306,241 @@
         </div>
 
         <!-- Debounce (full-width below the grid) -->
-        <section style="margin-top: 24px;">
-            <h2>Debounce</h2>
-            <p class="section-desc">
-                Output updates 500ms after you stop typing. The <code>.debounce</code> modifier handles timing automatically.
+        <section class="card card-border bg-base-200 p-8 mb-6 mt-6">
+            <h2 class="text-lg font-semibold">Debounce</h2>
+            <p class="text-sm text-base-content/50 mb-5 leading-relaxed">
+                Output updates 500ms after you stop typing. The <code class="text-primary">.debounce</code> modifier handles timing automatically.
                 <br>
-                <span class="pattern-tag">.debounce</span>
+                <span class="badge badge-sm font-mono bg-base-100 text-primary border-base-300 mr-1 mb-1">.debounce</span>
             </p>
 
-            <div class="debounce-row">
-                <input type="text"
+            <div class="flex gap-4 items-center">
+                <input type="text" class="input input-bordered flex-1"
                        data-on:input__debounce.500ms="$debouncedText = $evt.target.value"
                        placeholder="Type something...">
-                <div class="debounce-output">
+                <div class="text-sm text-base-content/60 min-w-30">
                     Debounced: <strong data-text="$debouncedText || '...'"></strong>
                 </div>
             </div>
         </section>
 
         <!-- ═══════════════════════════════════════ -->
-        <!--  GROUP 4: DEV TOOLS                     -->
+        <!--  GROUP 4: AUTH + TASKS                   -->
         <!-- ═══════════════════════════════════════ -->
-        <div class="group-label">Developer Tools</div>
+        <div class="text-xs font-semibold uppercase tracking-widest text-base-content/40 mt-10 mb-4 pl-1">Tasks</div>
 
-        <!-- Signal Inspector -->
-        <section>
-            <h2>Signal Inspector</h2>
-            <p class="section-desc">
-                Live JSON dump of every signal in the store. Updates in real-time as you interact with the page.
+        <!-- Sign-in prompt for unauthenticated users -->
+        <div data-show="!$authUser" class="text-center p-4 text-base-content/50 text-sm">
+            <a href="/login" class="link link-primary">Sign in</a> to access Tasks and Admin features.
+        </div>
+
+        <!-- Tasks (protected) -->
+        <section class="card card-border bg-base-200 p-8 mb-6" data-show="$authUser">
+            <h2 class="text-lg font-semibold">Tasks
+                <span class="indicator" data-show="$isFetching"></span>
+            </h2>
+            <p class="text-sm text-base-content/50 mb-5 leading-relaxed">
+                Authenticated task CRUD. Same Zod schemas power both this REST API and the MCP tools for AI agents.
                 <br>
-                <span class="pattern-tag">data-json-signals</span>
+                <span class="badge badge-sm font-mono bg-base-100 text-primary border-base-300 mr-1 mb-1">Drizzle ORM</span>
+                <span class="badge badge-sm font-mono bg-base-100 text-primary border-base-300 mr-1 mb-1">Dual-Binding</span>
+                <span class="badge badge-sm font-mono bg-base-100 text-primary border-base-300 mr-1 mb-1">MCP Tools</span>
             </p>
 
-            <pre class="inspector-pre" data-json-signals></pre>
+            <div class="task-form flex gap-3 mb-4">
+                <input type="text" class="input input-bordered flex-1" data-bind="taskTitle" placeholder="Task title...">
+                <button class="btn btn-primary" data-on:click="
+                    if (!$taskTitle.trim()) { $taskError = 'Title is required'; return; }
+                    $taskError = '';
+                    fetch('/api/tasks', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ title: $taskTitle, description: $taskDesc || undefined })
+                    }).then(r => {
+                        if (!r.ok) return r.json().then(e => { throw new Error(e.error?.message || e.error || 'Failed to create task'); });
+                        return r.json();
+                    }).then(() => {
+                        $taskTitle = ''; $taskDesc = ''; $taskError = '';
+                        fetchTasks();
+                    }).catch(e => { $taskError = e.message; })
+                ">Add Task</button>
+            </div>
+            <div class="text-sm text-error text-center" data-show="$taskError" data-text="$taskError"></div>
+
+            <div class="flex gap-2 mb-4 justify-center">
+                <button class="task-filter-btn btn btn-xs btn-outline"
+                        data-class:btn-primary="!$taskFilter"
+                        data-on:click="$taskFilter = ''; fetchTasks()">All</button>
+                <button class="task-filter-btn btn btn-xs btn-outline"
+                        data-class:btn-primary="$taskFilter === 'pending'"
+                        data-on:click="$taskFilter = 'pending'; fetchTasks()">Pending</button>
+                <button class="task-filter-btn btn btn-xs btn-outline"
+                        data-class:btn-primary="$taskFilter === 'in_progress'"
+                        data-on:click="$taskFilter = 'in_progress'; fetchTasks()">In Progress</button>
+                <button class="task-filter-btn btn btn-xs btn-outline"
+                        data-class:btn-primary="$taskFilter === 'completed'"
+                        data-on:click="$taskFilter = 'completed'; fetchTasks()">Completed</button>
+            </div>
+
+            <ul id="task-list" class="list-none p-0">
+                <li class="note-empty text-center text-base-content/50 text-sm p-3">Loading tasks...</li>
+            </ul>
+
+            <div class="text-center text-sm text-base-content/50 mt-2">
+                <span id="task-count-display">0</span> tasks
+            </div>
+
+            <script>
+                // Task helpers (called from Datastar expressions)
+                window.fetchTasks = function() {
+                    const signals = document.querySelector('[data-signals]').__ds?.signals;
+                    const filter = signals?.taskFilter?.value || '';
+                    const url = filter ? `/api/tasks?status=${filter}` : '/api/tasks';
+                    fetch(url).then(r => {
+                        if (r.status === 401) {
+                            document.getElementById('task-list').innerHTML = '<li class="note-empty text-center text-base-content/50 text-sm p-3">Sign in to see tasks</li>';
+                            var cd = document.getElementById('task-count-display');
+                            if (cd) cd.textContent = '0';
+                            return null;
+                        }
+                        return r.json();
+                    }).then(data => {
+                        if (!data) return;
+                        const countDisplay = document.getElementById('task-count-display');
+                        if (countDisplay) countDisplay.textContent = data.taskCount;
+                        const list = document.getElementById('task-list');
+                        if (!data.tasks.length) {
+                            list.innerHTML = '<li class="note-empty text-center text-base-content/50 text-sm p-3">No tasks yet</li>';
+                            return;
+                        }
+                        list.innerHTML = data.tasks.map(t => `
+                            <li class="task-item flex items-center gap-3 px-3 py-2.5 border-b border-base-300 last:border-b-0" id="task-${t.id}">
+                                <span class="task-title flex-1 text-sm">${t.title}</span>
+                                <select onchange="updateTaskStatus(${t.id}, this.value)"
+                                        class="select select-xs select-bordered">
+                                    <option value="pending" ${t.status==='pending'?'selected':''}>Pending</option>
+                                    <option value="in_progress" ${t.status==='in_progress'?'selected':''}>In Progress</option>
+                                    <option value="completed" ${t.status==='completed'?'selected':''}>Completed</option>
+                                </select>
+                                <button class="note-delete btn btn-xs btn-ghost text-error" onclick="deleteTask(${t.id})">x</button>
+                            </li>
+                        `).join('');
+                    });
+                };
+                window.updateTaskStatus = function(id, status) {
+                    fetch(`/api/tasks/${id}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ status })
+                    }).then(() => fetchTasks());
+                };
+                window.deleteTask = function(id) {
+                    fetch(`/api/tasks/${id}`, { method: 'DELETE' }).then(() => fetchTasks());
+                };
+            </script>
+            <div data-effect="if ($authUser) { fetchTasks() }"></div>
+        </section>
+
+        <!-- Admin Panel (admin role only) -->
+        <section class="card card-border bg-base-200 p-8 mb-6" data-show="$authRole === 'admin'">
+            <h2 class="text-lg font-semibold">Admin Panel</h2>
+            <p class="text-sm text-base-content/50 mb-5 leading-relaxed">
+                Manage users via Better Auth admin plugin. Only visible to admin role.
+                <br>
+                <span class="badge badge-sm font-mono bg-base-100 text-primary border-base-300 mr-1 mb-1">Better Auth Admin</span>
+                <span class="badge badge-sm font-mono bg-base-100 text-primary border-base-300 mr-1 mb-1">data-show</span>
+                <span class="badge badge-sm font-mono bg-base-100 text-primary border-base-300 mr-1 mb-1">fetch()</span>
+            </p>
+
+            <div class="flex gap-3 mb-4 justify-center">
+                <button class="btn btn-outline" data-on:click="fetchAdminUsers()">Refresh Users</button>
+            </div>
+
+            <ul id="admin-user-list" class="list-none p-0">
+                <li class="note-empty text-center text-base-content/50 text-sm p-3">Click "Refresh Users" to load</li>
+            </ul>
+
+            <div id="admin-user-count" class="text-center text-sm text-base-content/50 mt-2"></div>
+
+            <script>
+                window.fetchAdminUsers = function() {
+                    fetch('/api/auth/admin/list-users').then(function(r) {
+                        if (!r.ok) throw new Error('Not authorized');
+                        return r.json();
+                    }).then(function(data) {
+                        var list = document.getElementById('admin-user-list');
+                        var countEl = document.getElementById('admin-user-count');
+                        if (!data.users || !data.users.length) {
+                            list.innerHTML = '<li class="note-empty text-center text-base-content/50 text-sm p-3">No users found</li>';
+                            countEl.textContent = '0 users';
+                            return;
+                        }
+                        countEl.textContent = data.total + ' users';
+                        list.innerHTML = data.users.map(function(u) {
+                            return '<li class="task-item flex items-center gap-3 px-3 py-2.5 border-b border-base-300 last:border-b-0" id="admin-user-' + u.id + '">'
+                                + '<span class="task-title flex-1 text-sm">' + u.name + ' (' + u.email + ')</span>'
+                                + '<span class="badge badge-sm ' + (u.role === 'admin' ? 'badge-info' : 'badge-ghost') + '">' + (u.role || 'user') + '</span>'
+                                + '<select onchange="setUserRole(\'' + u.id + '\', this.value)"'
+                                + ' class="select select-xs select-bordered">'
+                                + '<option value="user"' + ((u.role||'user')==='user' ? ' selected' : '') + '>user</option>'
+                                + '<option value="admin"' + (u.role==='admin' ? ' selected' : '') + '>admin</option>'
+                                + '</select>'
+                                + (u.banned
+                                    ? '<button onclick="unbanUser(\'' + u.id + '\')" class="btn btn-xs btn-outline btn-success">Unban</button>'
+                                    : '<button onclick="banUser(\'' + u.id + '\')" class="btn btn-xs btn-outline btn-error">Ban</button>')
+                                + '</li>';
+                        }).join('');
+                    }).catch(function(e) {
+                        document.getElementById('admin-user-list').innerHTML = '<li class="note-empty text-center text-base-content/50 text-sm p-3">Error: ' + e.message + '</li>';
+                    });
+                };
+                window.setUserRole = function(userId, role) {
+                    fetch('/api/auth/admin/set-role', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userId: userId, role: role })
+                    }).then(function() { fetchAdminUsers(); });
+                };
+                window.banUser = function(userId) {
+                    fetch('/api/auth/admin/ban-user', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userId: userId, banReason: 'Banned by admin' })
+                    }).then(function() { fetchAdminUsers(); });
+                };
+                window.unbanUser = function(userId) {
+                    fetch('/api/auth/admin/unban-user', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userId: userId })
+                    }).then(function() { fetchAdminUsers(); });
+                };
+            </script>
+            <div data-effect="if ($authRole === 'admin') { fetchAdminUsers() }"></div>
+        </section>
+
+        <!-- ═══════════════════════════════════════ -->
+        <!--  GROUP 5: DEV TOOLS                     -->
+        <!-- ═══════════════════════════════════════ -->
+        <div class="text-xs font-semibold uppercase tracking-widest text-base-content/40 mt-10 mb-4 pl-1">Developer Tools</div>
+
+        <!-- Signal Inspector -->
+        <section class="card card-border bg-base-200 p-8 mb-6">
+            <h2 class="text-lg font-semibold">Signal Inspector</h2>
+            <p class="text-sm text-base-content/50 mb-5 leading-relaxed">
+                Live JSON dump of every signal in the store. Updates in real-time as you interact with the page.
+                <br>
+                <span class="badge badge-sm font-mono bg-base-100 text-primary border-base-300 mr-1 mb-1">data-json-signals</span>
+            </p>
+
+            <pre class="bg-base-100 border border-base-300 rounded-lg p-4 font-mono text-xs text-base-content/60 overflow-auto max-h-75 leading-relaxed" data-json-signals></pre>
         </section>
 
         <!-- Footer links -->
-        <div class="links">
-            <a href="/ui">API Docs</a>
-            <a href="/api/doc">OpenAPI Spec</a>
-            <a href="/api/counter">API JSON</a>
+        <div class="flex gap-4 justify-center text-sm mt-8">
+            <a href="/ui" class="link link-hover text-base-content/50">API Docs</a>
+            <a href="/api/doc" class="link link-hover text-base-content/50">OpenAPI Spec</a>
+            <a href="/api/counter" class="link link-hover text-base-content/50">API JSON</a>
         </div>
 
     </div>

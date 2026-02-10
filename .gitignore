@@ -43,3 +43,6 @@ test-results/
 
 # bun:sqlite local data
 data/
+
+# cloned reference repos
+.src/

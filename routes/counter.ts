@@ -1,22 +1,8 @@
-import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
+import { OpenAPIHono, createRoute } from '@hono/zod-openapi'
 import { getCount, increment, decrement, setCount, resetCount } from '../queries'
 import { isSSE, respond, respondFragment, respondPersistent } from '../sse'
+import { CounterSchema, SetCountSchema, CounterFragmentSchema } from '../validators'
 import type { AppEnv, BroadcastConfig } from '../types'
-
-// --- Schemas ---
-
-const CounterSchema = z.object({
-  count: z.number().int().openapi({
-    example: 1,
-  }),
-}).openapi('Counter')
-
-const SetCountSchema = z.object({
-  inputValue: z.number().int().openapi({
-    example: 42,
-    description: 'Value to set the counter to',
-  }),
-}).openapi('SetCount')
 
 // --- Route Definitions ---
 
@@ -111,11 +97,7 @@ const fragmentRoute = createRoute({
     200: {
       content: {
         'application/json': {
-          schema: z.object({
-            count: z.number().int(),
-            html: z.string(),
-            renderedAt: z.string(),
-          }).openapi('CounterFragment'),
+          schema: CounterFragmentSchema,
         },
       },
       description: 'Server-rendered counter fragment',
@@ -182,7 +164,7 @@ export default (bc?: BroadcastConfig) => {
   app.openapi(fragmentRoute, async (c) => {
     const count = await getCount(c.env.DB)
     const renderedAt = new Date().toISOString()
-    const html = `<div class="fragment-content"><strong>${count}</strong> <span>as of ${renderedAt}</span></div>`
+    const html = `<div class="fragment-content"><strong class="text-xl">${count}</strong> <span class="text-xs text-base-content/50">as of ${renderedAt}</span></div>`
     return respondFragment(c, {
       signals: { count },
       fragments: [{ selector: '#server-fragment', html }],

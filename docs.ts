@@ -17,6 +17,8 @@ export function mountDocs(app: OpenAPIHono<any>, config: DocsConfig) {
     },
     tags: [
       { name: 'Counter', description: 'Read, increment, decrement, and reset the shared counter.' },
+      { name: 'Tasks', description: 'Authenticated task CRUD (also exposed as MCP tools).' },
+      { name: 'Admin', description: 'Admin user management (Better Auth admin plugin, auto-mounted under /api/auth/admin/).' },
     ],
     servers: config.servers,
   })

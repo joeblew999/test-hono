@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="night">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In — Hono + Datastar</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>🔥</text></svg>">
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@5" rel="stylesheet" type="text/css" />
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script type="module" src="/datastar.js"></script>
+    <style type="text/tailwindcss">
+        [data-theme="night"] {
+            --color-primary: oklch(65.69% 0.196 277.12);
+            --color-primary-content: oklch(98% 0.005 277.12);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center bg-base-100">
+    <div class="card card-border bg-base-200 p-10 max-w-md w-[90%]"
+         data-signals='{"authEmail": "", "authPassword": "", "authName": "", "authError": "", "authMode": "signin", "demoCredentials": []}'
+         data-init="@get('/api/demo-credentials')">
+
+        <h1 class="text-center text-xl font-bold mb-2" data-text="$authMode === 'signup' ? 'Create Account' : 'Welcome Back'"></h1>
+        <p class="text-center text-sm text-base-content/50 mb-6">Sign in to access Tasks and Admin features.</p>
+
+        <div class="auth-form flex flex-col gap-3">
+            <input type="text" class="input input-bordered w-full" data-bind="authName" placeholder="Name"
+                   data-show="$authMode === 'signup'">
+            <input type="email" class="input input-bordered w-full" data-bind="authEmail" placeholder="Email">
+            <input type="password" class="input input-bordered w-full" data-bind="authPassword" placeholder="Password">
+            <div class="text-sm text-error text-center" data-show="$authError" data-text="$authError"></div>
+            <button class="btn btn-primary w-full" data-on:click="
+                $authError = '';
+                const url = $authMode === 'signup'
+                    ? '/api/auth/sign-up/email'
+                    : '/api/auth/sign-in/email';
+                const body = $authMode === 'signup'
+                    ? { email: $authEmail, password: $authPassword, name: $authName }
+                    : { email: $authEmail, password: $authPassword };
+                fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                }).then(r => r.json()).then(data => {
+                    if (data.user) {
+                        window.location.href = '/';
+                    } else {
+                        $authError = data.message || 'Auth failed';
+                    }
+                }).catch(() => { $authError = 'Network error'; })
+            " data-text="$authMode === 'signup' ? 'Sign Up' : 'Sign In'"></button>
+            <div class="auth-toggle text-sm text-base-content/50 text-center cursor-pointer hover:text-base-content/80 mt-1"
+                 data-on:click="$authMode = $authMode === 'signin' ? 'signup' : 'signin'; $authError = ''"
+                 data-text="$authMode === 'signin' ? 'Need an account? Sign up' : 'Have an account? Sign in'">
+            </div>
+        </div>
+
+        <!-- Demo Credentials Panel (visible only when DEMO_MODE is on) -->
+        <div class="demo-credentials mt-6 pt-6 border-t border-base-300" data-show="$demoCredentials.length > 0">
+            <p class="text-center text-xs font-semibold uppercase tracking-widest text-base-content/40 mb-3">Demo Accounts</p>
+            <p class="text-center text-xs text-base-content/50 mb-3">Click to auto-fill credentials</p>
+            <div class="flex flex-col gap-2">
+                <button class="demo-user-btn btn btn-outline btn-sm justify-between w-full"
+                        data-show="$demoCredentials.length > 0"
+                        data-on:click="$authMode = 'signin'; $authEmail = $demoCredentials[0].email; $authPassword = $demoCredentials[0].password; $authError = ''">
+                    <span data-text="$demoCredentials[0]?.name || ''"></span>
+                    <span class="badge badge-xs badge-ghost" data-text="$demoCredentials[0]?.role || ''"></span>
+                </button>
+                <button class="demo-admin-btn btn btn-outline btn-sm justify-between w-full"
+                        data-show="$demoCredentials.length > 1"
+                        data-on:click="$authMode = 'signin'; $authEmail = $demoCredentials[1].email; $authPassword = $demoCredentials[1].password; $authError = ''">
+                    <span data-text="$demoCredentials[1]?.name || ''"></span>
+                    <span class="badge badge-xs badge-primary" data-text="$demoCredentials[1]?.role || ''"></span>
+                </button>
+            </div>
+        </div>
+
+        <a href="/" class="link text-sm text-base-content/50 block text-center mt-4">Back to showcase</a>
+    </div>
+
+    <script>
+        // If already signed in, redirect to home
+        fetch('/api/auth/get-session').then(r => r.json()).then(data => {
+            if (data?.user) window.location.href = '/';
+        }).catch(() => {});
+    </script>
+</body>
+</html>

@@ -11,6 +11,8 @@ primary_region = 'sjc'
   # Assuming corrosion listens on port 8080 by default in the same VM.
   CORROSION_AGENT_URL = 'http://localhost:8080'
   CORROSION_GOSSIP_PORT = '7946' # Standard gossip protocol UDP port
+  BETTER_AUTH_URL = 'https://test-hono-bun.fly.dev'
+  # BETTER_AUTH_SECRET set via `fly secrets set`
 
 [processes]
   # Main application process

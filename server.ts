@@ -1,13 +1,19 @@
 import { OpenAPIHono } from '@hono/zod-openapi'
 import { serveStatic } from 'hono/bun'
+import { bearerAuth } from 'hono/bearer-auth'
 import { mkdirSync } from 'node:fs'
 import { initDB, createD1Compat } from './db'
-import { initCorrosionDB, applyCrSqlChanges } from './corrosion-db'
-import { startLocalCorrosionAgent } from './corrosion-local-manager'
-import { startCorrosionSyncManager } from './corrosion-sync-manager'
+import { initCorrosionDB, applyCrSqlChanges } from './corrosion/db'
+import { startLocalCorrosionAgent } from './corrosion/local-manager'
+import { startCorrosionSyncManager } from './corrosion/sync-manager'
 import type { AppEnv, BroadcastConfig } from './types'
 import api from './api'
 import { mountDocs } from './docs'
+import { getAuth, requireAuth, handleSessionCheck } from './auth'
+import { handleMcpRequest } from './mcp'
+import { CrChangesetsSchema } from './validators'
+import { seedDemoUsers, getPublicDemoCredentials } from './demo'
+import { respond } from './sse'
 
 // Initialize SQLite
 const dbPath = process.env.DB_PATH || './data/counter.db'
@@ -62,44 +68,66 @@ if (process.env.USE_CORROSION_DB === 'true' && corrosionAgentUrl) {
 // App
 const app = new OpenAPIHono<AppEnv>()
 
-// Inject D1-compatible DB into every request's env
-app.use('/api/*', async (c, next) => {
+// Inject D1-compatible DB and auth env vars into every request
+app.use('*', async (c, next) => {
   ;(c.env as any).DB = d1
+  ;(c.env as any).BETTER_AUTH_SECRET = process.env.BETTER_AUTH_SECRET || 'dev-secret-change-in-production'
+  ;(c.env as any).BETTER_AUTH_URL = process.env.BETTER_AUTH_URL || `http://localhost:${process.env.PORT || '3000'}`
+  ;(c.env as any).DEMO_MODE = process.env.DEMO_MODE
   await next()
+})
+
+// Seed demo users on first request
+let demoSeeded = false
+app.use('*', async (c, next) => {
+  if (!demoSeeded) {
+    demoSeeded = true
+    await seedDemoUsers(c)
+  }
+  await next()
+})
+
+// Clean URL for login page
+app.get('/login', (c) => c.redirect('/login.html'))
+
+// Demo credentials (returns empty array when DEMO_MODE off)
+app.get('/api/demo-credentials', (c) => {
+  return respond(c, { credentials: getPublicDemoCredentials(c) })
+})
+
+// Session check (SSE signals for Datastar, JSON for API clients)
+app.get('/api/session', handleSessionCheck)
+
+// Better Auth handler
+app.on(['GET', 'POST'], '/api/auth/*', async (c) => {
+  const auth = getAuth(c)
+  return auth.handler(c.req.raw)
 })
 
 app.route('/api', api(broadcastConfig))
 
+// MCP endpoint — shared auth + handler
+app.all('/mcp', requireAuth, handleMcpRequest)
+
 // Sync endpoint (Bun/Fly.io only — not available on Workers)
 if (process.env.USE_CORROSION_DB === 'true') {
-  // API Key auth middleware for sync routes
-  app.use('/api/sync/*', async (c, next) => {
-    const apiKey = c.req.header('X-API-Key');
-    const expectedApiKey = process.env.SYNC_API_KEY;
-
-    if (!expectedApiKey) {
-      console.error('SYNC_API_KEY is not configured on the server.');
-      return c.json({ error: 'Server authentication misconfiguration.' }, 500);
-    }
-
-    if (!apiKey || apiKey !== expectedApiKey) {
-      return c.json({ error: 'Unauthorized: Invalid or missing API Key.' }, 401);
-    }
-
-    await next();
-  });
+  app.use('/api/sync/*', bearerAuth({
+    token: process.env.SYNC_API_KEY || '',
+    headerName: 'X-API-Key',
+    prefix: '',
+  }));
 
   // Endpoint for receiving CR-SQLite changesets from desktop clients
   app.post('/api/sync/changesets', async (c) => {
-    const changesets = await c.req.json() as any[];
-
-    if (!Array.isArray(changesets)) {
-      return c.json({ error: 'Request body must be an array of changesets' }, 400);
+    const raw = await c.req.json();
+    const parsed = CrChangesetsSchema.safeParse(raw);
+    if (!parsed.success) {
+      return c.json({ error: 'Invalid changeset payload', details: parsed.error.issues }, 400);
     }
 
     try {
-      await applyCrSqlChanges(d1, changesets);
-      return c.json({ success: true, message: `Applied ${changesets.length} changes.` });
+      await applyCrSqlChanges(d1, parsed.data);
+      return c.json({ success: true, message: `Applied ${parsed.data.length} changes.` });
     } catch (error) {
       console.error('Error applying changesets:', error);
       return c.json({ error: 'Failed to apply changesets.', details: (error as Error).message }, 500);
@@ -109,7 +137,7 @@ if (process.env.USE_CORROSION_DB === 'true') {
 
 mountDocs(app, {
   title: 'Hono Datastar API (Bun + SQLite)',
-  description: 'Counter API with persistent SSE broadcast. Same routes as Workers, but with real-time push.',
+  description: 'Counter API with persistent SSE broadcast, MCP tools for AI agents, and Better Auth.',
   servers: [
     { url: 'http://localhost:3000', description: 'Local dev (Bun)' },
   ],
