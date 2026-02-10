@@ -195,6 +195,27 @@ tasks:
         rm -f .last-run.json
       - echo "GIFs saved to docs/videos/ ($(du -sh docs/videos | cut -f1))"
 
+  cf:sync-demo:
+    desc: "Record two-tab sync demo as side-by-side GIF"
+    cmds:
+      - task: cf:start
+      - rm -rf docs/videos/sync-tab-a docs/videos/sync-tab-b docs/videos/sync-demo
+      - mkdir -p docs/videos/sync-demo
+      - bunx playwright test --config=playwright.sync-demo.ts
+      - |
+        echo "Combining Tab A + Tab B side by side..."
+        VID_A=$(ls docs/videos/sync-tab-a/*.webm | head -1)
+        VID_B=$(ls docs/videos/sync-tab-b/*.webm | head -1)
+        ffmpeg -y -i "$VID_A" -i "$VID_B" \
+          -filter_complex "[0:v][1:v]hstack=inputs=2" \
+          -loglevel error docs/videos/sync-demo/combined.webm
+        ffmpeg -y -i docs/videos/sync-demo/combined.webm -vf "fps=10,palettegen" -loglevel error /tmp/sync_palette.png
+        ffmpeg -y -i docs/videos/sync-demo/combined.webm -i /tmp/sync_palette.png \
+          -lavfi "fps=10[x];[x][1:v]paletteuse" -loglevel error docs/videos/sync-demo/video.gif
+        rm -f docs/videos/sync-demo/combined.webm /tmp/sync_palette.png
+        rm -rf docs/videos/sync-tab-a docs/videos/sync-tab-b
+      - echo "Sync demo saved to docs/videos/sync-demo/video.gif ($(du -h docs/videos/sync-demo/video.gif | cut -f1))"
+
   cf:ci:secrets:
     desc: "Set Cloudflare API token + account ID as GitHub secrets"
     summary: |
@@ -277,6 +298,9 @@ tasks:
   videos:
     desc: "Alias for cf:videos"
     cmds: [{ task: cf:videos }]
+  sync-demo:
+    desc: "Alias for cf:sync-demo"
+    cmds: [{ task: cf:sync-demo }]
 
   # ╔══════════════════════════════════════════════╗
   # ║  Fly.io / Bun (fly:)                         ║

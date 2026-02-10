@@ -5,7 +5,7 @@ const headed = process.env.HEADED !== '0';
 
 export default defineConfig({
   testDir: './tests',
-  testIgnore: ['**/screenshots.spec.ts'],
+  testIgnore: ['**/screenshots.spec.ts', '**/sync-demo.spec.ts'],
   workers: headed ? 1 : 2,
   use: {
     baseURL: process.env.BASE_URL || DEFAULT_BASE_URL,
