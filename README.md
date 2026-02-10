@@ -14,6 +14,52 @@ Hono + Datastar full-stack showcase — tri-mode deployment to Cloudflare Worker
 |---------|--------|--------|
 | ![Desktop](docs/screenshots/desktop/full-page.png) | ![Tablet](docs/screenshots/tablet/full-page.png) | ![Mobile](docs/screenshots/mobile/full-page.png) |
 
+### Cross-Tab Sync Demo
+
+Two browser tabs connected via persistent SSE — increment the counter or add a note in Tab A and watch Tab B update within 2 seconds.
+
+![Sync Demo](docs/videos/sync-demo.gif)
+
+### Counter
+
+| Increment | Decrement | Set via Input |
+|-----------|-----------|---------------|
+| ![Increment](docs/videos/counter-increment.gif) | ![Decrement](docs/videos/counter-decrement.gif) | ![Set](docs/videos/counter-set-counter-via-input-field.gif) |
+
+| Computed Values | Color Classes | Conditional Messages |
+|-----------------|---------------|----------------------|
+| ![Computed](docs/videos/counter-computed-values-display-correctly.gif) | ![Colors](docs/videos/counter-color-classes-toggle-on-positive-negative.gif) | ![Messages](docs/videos/counter-conditional-messages-show-hide-correctly.gif) |
+
+| Inc + Dec Together | Server Fragment |
+|--------------------|-----------------|
+| ![Both](docs/videos/counter-increment-and-decrement-work-together.gif) | ![Fragment](docs/videos/counter-server-fragment-loads-HTML.gif) |
+
+### Notes
+
+| Add & Display | Add Multiple & Delete | Input Clears |
+|---------------|----------------------|--------------|
+| ![Add](docs/videos/notes-add-and-display.gif) | ![Multi](docs/videos/notes-add-multiple-and-delete.gif) | ![Clear](docs/videos/notes-input-clears-after-add.gif) |
+
+| Interval Timer | Reactive Styles | Signal Inspector |
+|----------------|-----------------|------------------|
+| ![Timer](docs/videos/notes-interval-timer-ticks.gif) | ![Styles](docs/videos/notes-reactive-styles-bar-width-changes-with-counter.gif) | ![Inspector](docs/videos/notes-signal-inspector-shows-JSON-with-signal-names.gif) |
+
+### Auth & Tasks
+
+| Sign Up | Sign In After Sign Up | Sign Out |
+|---------|----------------------|----------|
+| ![SignUp](docs/videos/auth-sign-up-shows-user-name-in-header.gif) | ![SignIn](docs/videos/auth-sign-in-after-sign-up-works.gif) | ![SignOut](docs/videos/auth-sign-out-clears-state.gif) |
+
+| Tasks CRUD | Admin Panel | Unauthenticated |
+|------------|-------------|-----------------|
+| ![Tasks](docs/videos/auth-tasks-create-and-display.gif) | ![Admin](docs/videos/auth-admin-promoted-user-sees-admin-panel.gif) | ![Unauth](docs/videos/auth-admin-unauthenticated-user-sees-sign-in-prompt.gif) |
+
+### Service Worker (Local-First)
+
+| Offline Mode | Notes CRUD | Persistence | Sync to Server |
+|--------------|------------|-------------|----------------|
+| ![Offline](docs/videos/sw-offline.gif) | ![SW Notes](docs/videos/sw-notes-crud.gif) | ![Persist](docs/videos/sw-persistence.gif) | ![Sync](docs/videos/sw-sync.gif) |
+
 ## Features
 
 - **Content-negotiated API** — single set of OpenAPI routes serves JSON (curl, Scalar) and SSE (Datastar) via `Accept` header
@@ -172,6 +218,9 @@ task fly:test             # same tests against Bun server
 task cf:test:deployed     # tests against production Workers
 task fly:test:deployed    # tests against production Fly.io
 task screenshots          # capture at 3 viewports (mobile/tablet/desktop)
+task videos              # record test runs as GIFs (docs/videos/)
+task sync-demo           # record two-tab sync demo as side-by-side GIF
+task docs                # generate all docs (screenshots + videos + sync demo)
 
 # Database
 task db:migrate           # apply D1 migrations locally
