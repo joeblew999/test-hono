@@ -1,7 +1,7 @@
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
 import { listNotes, addNote, deleteNote, clearNotes } from '../queries'
 import type { Note } from '../queries'
-import { isSSE, respond, respondFragment } from '../sse'
+import { isSSE, respond, respondFragment, respondPersistentPollingFragments } from '../sse'
 import { NoteSchema, NotesListSchema, AddNoteSchema, DeletedNoteSchema, NotesResetSchema } from '../validators'
 import type { AppEnv, BroadcastConfig } from '../types'
 import { API, SEL } from '../constants'
@@ -88,12 +88,32 @@ export default (bc?: BroadcastConfig) => {
   app.openapi(listNotesRoute, async (c) => {
     const notes = await listNotes(c.env.DB)
     const noteCount = notes.length
+    const emptyHtml = '<li class="note-empty text-center text-base-content/50 text-sm p-3">No notes yet</li>'
+    const html = notes.map(renderNoteItem).join('') || emptyHtml
 
     if (isSSE(c)) {
-      const html = notes.map(renderNoteItem).join('') || '<li class="note-empty text-center text-base-content/50 text-sm p-3">No notes yet</li>'
-      return respondFragment(c, {
+      const initial = {
         signals: { noteCount },
-        fragments: [{ selector: SEL.NOTES_LIST, html, mode: 'inner' }],
+        fragments: [{ selector: SEL.NOTES_LIST, html, mode: 'inner' as const }],
+      }
+
+      // Push-based (Fly.io) — one-shot fragment (no persistent notes stream yet)
+      if (bc?.subscribe) {
+        return respondFragment(c, initial)
+      }
+
+      // Poll-based (Workers) — persistent stream, re-renders list when notes change
+      let lastNoteIds = notes.map(n => n.id).join(',')
+      return respondPersistentPollingFragments(c, initial, async () => {
+        const freshNotes = await listNotes(c.env.DB)
+        const freshIds = freshNotes.map(n => n.id).join(',')
+        if (freshIds === lastNoteIds) return null
+        lastNoteIds = freshIds
+        const freshHtml = freshNotes.map(renderNoteItem).join('') || emptyHtml
+        return {
+          signals: { noteCount: freshNotes.length },
+          fragments: [{ selector: SEL.NOTES_LIST, html: freshHtml, mode: 'inner' as const }],
+        }
       })
     }
     return c.json({ notes, noteCount }, 200)

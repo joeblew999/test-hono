@@ -1,6 +1,6 @@
 import { OpenAPIHono, createRoute } from '@hono/zod-openapi'
 import { getCount, increment, decrement, setCount, resetCount } from '../queries'
-import { isSSE, respond, respondFragment, respondPersistent } from '../sse'
+import { isSSE, respond, respondFragment, respondPersistent, respondPersistentPolling } from '../sse'
 import { CounterSchema, SetCountSchema, CounterFragmentSchema } from '../validators'
 import type { AppEnv, BroadcastConfig } from '../types'
 import { SEL } from '../constants'
@@ -132,12 +132,15 @@ export default (bc?: BroadcastConfig) => {
   app.openapi(getCounterRoute, async (c) => {
     const count = await getCount(c.env.DB)
 
-    // Persistent SSE: subscribe to broadcasts and keep connection alive
-    if (bc?.subscribe && isSSE(c)) {
-      return respondPersistent(c, {
-        initialSignals: { count },
-        subscribe: bc.subscribe,
-      })
+    if (isSSE(c)) {
+      // Push-based (Fly.io) when broadcast available, poll-based (Workers) otherwise
+      if (bc?.subscribe) {
+        return respondPersistent(c, {
+          initialSignals: { count },
+          subscribe: bc.subscribe,
+        })
+      }
+      return respondPersistentPolling(c, { count })
     }
 
     return respond(c, { count })
