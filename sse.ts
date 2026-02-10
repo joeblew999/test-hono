@@ -1,7 +1,7 @@
 import { streamSSE } from 'hono/streaming'
 import type { Context } from 'hono'
 import type { AppEnv, BroadcastConfig } from './types'
-import { getCount, listNotes } from './queries'
+import { getCount } from './queries'
 
 /** Check if the client wants SSE (Datastar sends Accept: text/event-stream) */
 export function isSSE(c: Context<AppEnv>): boolean {
@@ -93,7 +93,7 @@ export { type FragmentOptions }
 const POLL_INTERVAL_MS = 2_000
 const HEARTBEAT_INTERVAL_MS = 30_000
 
-/** Persistent SSE via D1 polling: polls counter+notes every 2s, sends updates when state changes.
+/** Persistent SSE via D1 polling: polls counter every 2s, sends updates when state changes.
  *  Used on Workers where there's no in-memory broadcast. Includes heartbeat for Cloudflare 524 prevention. */
 export function respondPersistentPolling(c: Context<AppEnv>, initialSignals: Record<string, unknown>) {
   const db = c.env.DB
@@ -108,7 +108,6 @@ export function respondPersistentPolling(c: Context<AppEnv>, initialSignals: Rec
     })
 
     let lastCount = (initialSignals.count as number) ?? -1
-    let lastNoteCount = -1
     let ticksSinceWrite = 0
     const heartbeatTicks = Math.floor(HEARTBEAT_INTERVAL_MS / POLL_INTERVAL_MS)
 
@@ -118,15 +117,12 @@ export function respondPersistentPolling(c: Context<AppEnv>, initialSignals: Rec
 
       try {
         const count = await getCount(db)
-        const notes = await listNotes(db)
-        const noteCount = notes.length
 
-        if (count !== lastCount || noteCount !== lastNoteCount) {
+        if (count !== lastCount) {
           lastCount = count
-          lastNoteCount = noteCount
           ticksSinceWrite = 0
           await stream.writeSSE({
-            data: `signals ${JSON.stringify({ count, noteCount })}`,
+            data: `signals ${JSON.stringify({ count })}`,
             event: 'datastar-patch-signals',
           })
         } else {

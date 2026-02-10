@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { SEED_COUNTER_VALUE, SEED_NOTES } from '../sw/seed-data'
+import { SEED_COUNTER_VALUE } from '../sw/seed-data'
 import { API, DEFAULT_BASE_URL } from '../constants'
 
 const BASE = process.env.BASE_URL || DEFAULT_BASE_URL
@@ -79,30 +79,6 @@ test.describe('Service Worker (local mode)', () => {
     await expect(page.locator('.count')).toHaveText(SEED_COUNT_PLUS_1, { timeout: 3000 })
   })
 
-  test('notes CRUD works through SW with seed data', async ({ page }) => {
-    await waitForSW(page)
-
-    // Reload so all data-init requests go through SW
-    await page.reload()
-    await page.waitForFunction(() => !!navigator.serviceWorker.controller, null, { timeout: 5000 })
-
-    // Verify seed notes are present
-    await expect(page.locator('.note-item')).toHaveCount(SEED_NOTES.length, { timeout: 3000 })
-    await expect(page.locator('.note-item', { hasText: 'Welcome to the demo' })).toBeVisible()
-
-    // Add a note
-    const input = page.locator('input[data-bind="newNote"]')
-    await input.pressSequentially('SW test note')
-    await page.getByRole('button', { name: 'Add' }).click()
-
-    // Verify note appears (now 6 notes)
-    await expect(page.locator('.note-item', { hasText: 'SW test note' })).toBeVisible({ timeout: 3000 })
-
-    // Delete the note
-    await page.locator('.note-item', { hasText: 'SW test note' }).locator('.note-delete').click()
-    await expect(page.locator('.note-item', { hasText: 'SW test note' })).not.toBeVisible({ timeout: 3000 })
-  })
-
   test('data persists across SW restarts via IndexedDB', async ({ page }) => {
     await waitForSW(page)
 
@@ -133,7 +109,6 @@ test.describe('Service Worker (local mode)', () => {
   test('sync pushes local state to the real server', async ({ page, request }) => {
     // Reset server state first
     await request.post(`${BASE}${API.COUNTER_RESET}`)
-    await request.post(`${BASE}${API.NOTES_RESET}`)
 
     // Enter local mode, make changes
     await waitForSW(page)
@@ -144,12 +119,6 @@ test.describe('Service Worker (local mode)', () => {
     await expect(page.locator('.count')).toHaveText(SEED_COUNT, { timeout: 3000 })
     await page.locator('button', { hasText: '+' }).click()
     await expect(page.locator('.count')).toHaveText(SEED_COUNT_PLUS_1, { timeout: 3000 })
-
-    // Add a note
-    const input = page.locator('input[data-bind="newNote"]')
-    await input.pressSequentially('Synced from local')
-    await page.getByRole('button', { name: 'Add' }).click()
-    await expect(page.locator('.note-item', { hasText: 'Synced from local' })).toBeVisible({ timeout: 3000 })
 
     // Trigger sync via API (same as clicking the Sync button)
     const syncResult: any = await page.evaluate(async (syncUrl: string) => {
@@ -169,10 +138,5 @@ test.describe('Service Worker (local mode)', () => {
     const counterRes = await request.get(`${BASE}${API.COUNTER}`)
     const counterData = await counterRes.json()
     expect(counterData.count).toBe(SEED_COUNTER_VALUE + 1)
-
-    const notesRes = await request.get(`${BASE}${API.NOTES}`)
-    const notesData = await notesRes.json()
-    const noteTexts = notesData.notes.map((n: any) => n.text)
-    expect(noteTexts).toContain('Synced from local')
   })
 })

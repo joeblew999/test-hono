@@ -1,6 +1,6 @@
 // @ts-ignore — sql.js has no type declarations
 import initSqlJs from 'sql.js'
-import { COUNTER_TABLE_SQL, NOTES_TABLE_SQL, SEED_COUNTER_VALUE, SEED_NOTES } from './seed-data'
+import { COUNTER_TABLE_SQL, SEED_COUNTER_VALUE } from './seed-data'
 
 // IndexedDB constants for persistence
 const IDB_NAME = 'sw-sqljs'
@@ -67,14 +67,8 @@ export async function initSqlJsDB(wasmUrl: string): Promise<any> {
   db.run(COUNTER_TABLE_SQL)
   db.run('INSERT OR IGNORE INTO counter (id, value) VALUES (1, ?)', [SEED_COUNTER_VALUE])
 
-  db.run(NOTES_TABLE_SQL)
-
-  for (const text of SEED_NOTES) {
-    db.run('INSERT INTO notes (text) VALUES (?)', [text])
-  }
-
   await saveToIDB(db)
-  console.log(`SW: created fresh DB with seed data (counter=${SEED_COUNTER_VALUE}, ${SEED_NOTES.length} notes)`)
+  console.log(`SW: created fresh DB with seed data (counter=${SEED_COUNTER_VALUE})`)
   return db
 }
 

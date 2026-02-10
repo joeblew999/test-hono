@@ -14,6 +14,7 @@ import { handleMcpRequest } from './lib/mcp'
 import { CrChangesetsSchema } from './validators'
 import { seedDemoUsers, seedDemoData, getPublicDemoCredentials } from './lib/demo'
 import { respond } from './sse'
+import { errorHandler, notFound, securityHeaders } from './lib/middleware'
 
 // Initialize SQLite
 const dbPath = process.env.DB_PATH || './data/counter.db'
@@ -68,10 +69,16 @@ if (process.env.USE_CORROSION_DB === 'true' && corrosionAgentUrl) {
 // App
 const app = new OpenAPIHono<AppEnv>()
 
+app.onError(errorHandler)
+app.notFound(notFound)
+app.use('*', securityHeaders)
+
 // Inject D1-compatible DB and auth env vars into every request
+const secret = process.env.BETTER_AUTH_SECRET
+if (!secret && isProduction) throw new Error('BETTER_AUTH_SECRET is required in production')
 app.use('*', async (c, next) => {
   ;(c.env as any).DB = d1
-  ;(c.env as any).BETTER_AUTH_SECRET = process.env.BETTER_AUTH_SECRET || 'dev-secret-change-in-production'
+  ;(c.env as any).BETTER_AUTH_SECRET = secret || 'dev-secret-change-in-production'
   ;(c.env as any).BETTER_AUTH_URL = process.env.BETTER_AUTH_URL || `http://localhost:${process.env.PORT || '3000'}`
   ;(c.env as any).DEMO_MODE = process.env.DEMO_MODE
   await next()

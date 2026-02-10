@@ -30,6 +30,9 @@ export const API = {
   // Auth
   SESSION: '/api/session',
   AUTH_SIGNUP: '/api/auth/sign-up/email',
+  // Sessions (device management)
+  SESSIONS: '/api/sessions',
+  SESSIONS_REVOKE: '/api/sessions/revoke',
 } as const
 
 // ── DOM selectors (used in SSE fragment patching + tests) ──
@@ -39,6 +42,7 @@ export const SEL = {
   SERVER_FRAGMENT: '#server-fragment',
   TASK_LIST: '#task-list',
   TASK_COUNT: '#task-count-display',
+  SESSION_LIST: '#session-list',
 } as const
 
 // ── Default dev server URL ──

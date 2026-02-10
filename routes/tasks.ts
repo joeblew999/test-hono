@@ -2,6 +2,7 @@ import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
 import { CreateTaskSchema, UpdateTaskSchema, TaskSchema, TaskListSchema, TaskFilterSchema, ErrorSchema, SuccessSchema, TasksResetSchema } from '../validators'
 import { listTasks, createTask, getTask, updateTask, deleteTask, clearTasks } from '../lib/task-logic'
 import { isSSE, respondFragment, respond } from '../sse'
+import { respondAfterMutation } from '../lib/route-helpers'
 import { requireAuth } from '../lib/auth'
 import { API, SEL } from '../constants'
 import type { AppEnv, BroadcastConfig } from '../types'
@@ -137,6 +138,8 @@ const resetTasksRoute = createRoute({
 
 type TaskRow = { id: number; title: string; status: string; description: string | null }
 
+const EMPTY_TASK_HTML = '<li class="note-empty text-center text-base-content/50 text-sm p-3">No tasks yet</li>'
+
 function renderTaskItem(task: TaskRow): string {
   const statusOptions = ['pending', 'in_progress', 'completed']
   const optionsHtml = statusOptions.map(s =>
@@ -161,7 +164,7 @@ export default (bc?: BroadcastConfig) => {
     const taskCount = tasks.length
 
     if (isSSE(c)) {
-      const html = tasks.map(renderTaskItem).join('') || '<li class="note-empty text-center text-base-content/50 text-sm p-3">No tasks yet</li>'
+      const html = tasks.map(renderTaskItem).join('') || EMPTY_TASK_HTML
       return respondFragment(c, {
         signals: { taskCount },
         fragments: [{ selector: SEL.TASK_LIST, html, mode: 'inner' }],
@@ -175,20 +178,13 @@ export default (bc?: BroadcastConfig) => {
     const data = c.req.valid('json')
     const db = c.get('drizzleDb')
     await createTask(db, user.id, data)
-    // Re-fetch full list (same pattern as notes)
     const tasks = await listTasks(db, user.id)
-    const taskCount = tasks.length
-    const html = tasks.map(renderTaskItem).join('')
-
-    if (isSSE(c)) {
-      return respondFragment(c, {
-        signals: { taskCount, taskTitle: '', taskDesc: '', taskError: '' },
-        fragments: [{ selector: SEL.TASK_LIST, html, mode: 'inner' }],
-      })
-    }
-
-    bc?.broadcast({ taskCount })
-    return c.json({ tasks, taskCount })
+    return respondAfterMutation({
+      c, items: tasks, countKey: 'taskCount', selector: SEL.TASK_LIST,
+      renderItem: renderTaskItem,
+      extraSignals: { taskTitle: '', taskDesc: '', taskError: '' },
+      jsonResponse: { tasks, taskCount: tasks.length }, bc,
+    })
   })
 
   // @ts-expect-error — Hono OpenAPI intersects 200+401+404; 401 handled by requireAuth middleware
@@ -209,20 +205,12 @@ export default (bc?: BroadcastConfig) => {
     const task = await updateTask(db, user.id, id, data)
     if (!task) return c.json({ error: 'Not found' }, 404)
 
-    // Re-fetch full list for SSE re-render
     const tasks = await listTasks(db, user.id)
-    const taskCount = tasks.length
-    const html = tasks.map(renderTaskItem).join('') || '<li class="note-empty text-center text-base-content/50 text-sm p-3">No tasks yet</li>'
-
-    if (isSSE(c)) {
-      return respondFragment(c, {
-        signals: { taskCount },
-        fragments: [{ selector: SEL.TASK_LIST, html, mode: 'inner' }],
-      })
-    }
-
-    bc?.broadcast({ taskCount })
-    return c.json(task)
+    return respondAfterMutation({
+      c, items: tasks, countKey: 'taskCount', selector: SEL.TASK_LIST,
+      renderItem: renderTaskItem, emptyHtml: EMPTY_TASK_HTML,
+      jsonResponse: task, bc,
+    })
   })
 
   app.openapi(deleteTaskRoute, async (c) => {
@@ -231,20 +219,12 @@ export default (bc?: BroadcastConfig) => {
     const db = c.get('drizzleDb')
     await deleteTask(db, user.id, id)
 
-    // Re-fetch full list for SSE re-render
     const tasks = await listTasks(db, user.id)
-    const taskCount = tasks.length
-    const html = tasks.map(renderTaskItem).join('') || '<li class="note-empty text-center text-base-content/50 text-sm p-3">No tasks yet</li>'
-
-    if (isSSE(c)) {
-      return respondFragment(c, {
-        signals: { taskCount },
-        fragments: [{ selector: SEL.TASK_LIST, html, mode: 'inner' }],
-      })
-    }
-
-    bc?.broadcast({ taskCount })
-    return c.json({ success: true })
+    return respondAfterMutation({
+      c, items: tasks, countKey: 'taskCount', selector: SEL.TASK_LIST,
+      renderItem: renderTaskItem, emptyHtml: EMPTY_TASK_HTML,
+      jsonResponse: { success: true }, bc,
+    })
   })
 
   app.openapi(resetTasksRoute, async (c) => {

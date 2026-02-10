@@ -7,8 +7,13 @@ import { handleMcpRequest } from './lib/mcp'
 import { seedDemoUsers, seedDemoData, getPublicDemoCredentials } from './lib/demo'
 import { respond } from './sse'
 import { DEFAULT_BASE_URL } from './constants'
+import { errorHandler, notFound, securityHeaders } from './lib/middleware'
 
 const app = new OpenAPIHono<AppEnv>()
+
+app.onError(errorHandler)
+app.notFound(notFound)
+app.use('*', securityHeaders)
 
 // Seed demo users on first request (Workers can't run code at module level)
 let demoSeeded = false

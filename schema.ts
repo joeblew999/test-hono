@@ -71,4 +71,14 @@ export const taskTable = sqliteTable('task', {
   index('idx_task_status').on(table.status),
 ])
 
+// --- Notes Table ---
 
+export const noteTable = sqliteTable('note', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: text('user_id').notNull().references(() => userTable.id, { onDelete: 'cascade' }),
+  text: text('text').notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+}, (table) => [
+  index('idx_note_user_id').on(table.userId),
+])

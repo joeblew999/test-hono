@@ -59,7 +59,7 @@
         <a href="/" class="btn btn-xs btn-ghost border border-primary-content/30 text-primary-content">Exit</a>
     </div>
     <div class="max-w-4xl mx-auto px-6 py-12"
-         data-signals='{"count": 0, "inputValue": 0, "lastKey": "", "isFetching": false, "newNote": "", "noteCount": 0, "noteError": "", "elapsed": 0, "debouncedText": "", "authEmail": "admin@example.com", "authPassword": "admin123", "authName": "Admin", "authUser": "", "authRole": "", "authError": "", "authMode": "signup", "taskTitle": "", "taskDesc": "", "taskFilter": "", "taskCount": 0, "taskError": ""}'
+         data-signals='{"count": 0, "inputValue": 0, "lastKey": "", "isFetching": false, "newNote": "", "noteCount": 0, "noteError": "", "elapsed": 0, "debouncedText": "", "authEmail": "admin@example.com", "authPassword": "admin123", "authName": "Admin", "authUser": "", "authRole": "", "authError": "", "authMode": "signup", "taskTitle": "", "taskDesc": "", "taskFilter": "", "taskCount": 0, "taskError": "", "sessionCount": 0, "revokeSessionToken": ""}'
          data-computed:abscount="Math.abs($count)"
          data-computed:parity="$count % 2 === 0 ? 'even' : 'odd'"
          data-computed:sign="$count > 0 ? 'positive' : $count < 0 ? 'negative' : 'zero'"
@@ -223,12 +223,12 @@
         </section>
 
         <!-- ═══════════════════════════════════════ -->
-        <!--  GROUP 2: NOTES                         -->
+        <!--  GROUP 2: NOTES (authenticated)          -->
         <!-- ═══════════════════════════════════════ -->
-        <div class="text-xs font-semibold uppercase tracking-widest text-base-content/40 mt-10 mb-4 pl-1">Notes</div>
+        <div class="text-xs font-semibold uppercase tracking-widest text-base-content/40 mt-10 mb-4 pl-1" data-show="$authUser">Notes</div>
 
-        <!-- Notes CRUD -->
-        <section class="card card-border bg-base-200 p-8 mb-6">
+        <!-- Notes CRUD (protected) -->
+        <section class="card card-border bg-base-200 p-8 mb-6" data-show="$authUser">
             <h2 class="text-lg font-semibold">Notes
                 <span class="indicator" data-show="$isFetching"></span>
             </h2>
@@ -463,6 +463,29 @@
                 };
             </script>
             <div data-effect="if ($authRole === 'admin') { fetchAdminUsers() }"></div>
+        </section>
+
+        <!-- My Sessions (protected) -->
+        <section class="card card-border bg-base-200 p-8 mb-6" data-show="$authUser">
+            <h2 class="text-lg font-semibold">My Sessions
+                <span class="indicator" data-show="$isFetching"></span>
+            </h2>
+            <p class="text-sm text-base-content/50 mb-5 leading-relaxed">
+                Active sessions across all your devices. Revoke any session to log it out remotely.
+                <br>
+                <span class="badge badge-sm font-mono bg-base-100 text-primary border-base-300 mr-1 mb-1">Multi-Session</span>
+                <span class="badge badge-sm font-mono bg-base-100 text-primary border-base-300 mr-1 mb-1">SSE Polling</span>
+                <span class="badge badge-sm font-mono bg-base-100 text-primary border-base-300 mr-1 mb-1">Remote Revocation</span>
+            </p>
+
+            <ul id="session-list" class="list-none p-0"
+                data-init="@get('/api/sessions')">
+                <li class="note-empty text-center text-base-content/50 text-sm p-3">Loading sessions...</li>
+            </ul>
+
+            <div class="text-center text-sm text-base-content/50 mt-2">
+                <span data-text="$sessionCount">0</span> active sessions
+            </div>
         </section>
 
         <!-- ═══════════════════════════════════════ -->

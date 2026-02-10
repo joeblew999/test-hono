@@ -13,26 +13,10 @@ export const COUNTER_TABLE_SQL = `
     value INTEGER NOT NULL DEFAULT 0
   )`
 
-export const NOTES_TABLE_SQL = `
-  CREATE TABLE IF NOT EXISTS notes (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    text TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-  )`
-
 // ── Seed data ──
 
 /** Counter starts at 42 in demo mode. */
 export const SEED_COUNTER_VALUE = 42
-
-/** Demo notes — seeded on first visit (server + SW). */
-export const SEED_NOTES = [
-  'Welcome to the demo! Try the counter above \u2191',
-  'Notes persist across sessions \u2014 close the tab and come back',
-  'Add ?local to the URL for offline Service Worker mode',
-  'Built with Hono + Datastar + Cloudflare Workers',
-  'Delete me \u2014 or add your own notes below',
-]
 
 /** Demo user credentials — intentionally public, for try-before-you-sign-up. */
 export const DEMO_CREDENTIALS = [

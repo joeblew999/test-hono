@@ -55,8 +55,10 @@ export const CounterFragmentSchema = z.object({
 
 export const NoteSchema = z.object({
   id: z.number().int(),
+  userId: z.string(),
   text: z.string(),
-  created_at: z.string(),
+  createdAt: z.number().int(),
+  updatedAt: z.number().int(),
 }).openapi('Note')
 
 export const NotesListSchema = z.object({
@@ -70,10 +72,6 @@ export const AddNoteSchema = z.object({
     description: 'Text of the note to add',
   }),
 }).openapi('AddNote')
-
-export const DeletedNoteSchema = z.object({
-  deleted: z.number().int(),
-}).openapi('DeletedNote')
 
 export const NotesResetSchema = z.object({
   noteCount: z.number().int(),
@@ -114,6 +112,31 @@ export const TaskFilterSchema = z.object({
 export const TasksResetSchema = z.object({
   taskCount: z.number().int(),
 }).openapi('TasksReset')
+
+// --- Sessions ---
+
+export const SessionInfoSchema = z.object({
+  id: z.string(),
+  token: z.string(),
+  ipAddress: z.string().nullable(),
+  userAgent: z.string().nullable(),
+  browser: z.string(),
+  os: z.string(),
+  lastActive: z.number().int(),
+  createdAt: z.number().int(),
+  isCurrent: z.boolean(),
+}).openapi('SessionInfo')
+
+export const SessionListSchema = z.object({
+  sessions: z.array(SessionInfoSchema),
+  sessionCount: z.number().int(),
+}).openapi('SessionList')
+
+export const RevokeSessionSchema = z.object({
+  revokeSessionToken: z.string().min(1).openapi({
+    description: 'Token of the session to revoke',
+  }),
+}).openapi('RevokeSession')
 
 // --- Demo ---
 

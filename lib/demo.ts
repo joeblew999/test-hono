@@ -5,8 +5,18 @@ import type { AppEnv } from '../types'
 import { getAuth } from './auth'
 import { userTable } from '../schema'
 import { listTasks, createTask, updateTask } from './task-logic'
-import { getCount, setCount, listNotes, addNote } from '../queries'
-import { DEMO_CREDENTIALS, SEED_NOTES, SEED_COUNTER_VALUE, USER_TASKS, ADMIN_TASKS } from '../sw/seed-data'
+import { listNotes, createNote } from './note-logic'
+import { getCount, setCount } from '../queries'
+import { DEMO_CREDENTIALS, SEED_COUNTER_VALUE, USER_TASKS, ADMIN_TASKS } from '../sw/seed-data'
+
+/** Demo notes — seeded per user on first visit. */
+const SEED_NOTES = [
+  'Welcome to the demo! Try the counter above \u2191',
+  'Notes persist across sessions \u2014 close the tab and come back',
+  'Add ?local to the URL for offline Service Worker mode',
+  'Built with Hono + Datastar + Cloudflare Workers',
+  'Delete me \u2014 or add your own notes below',
+]
 
 // Re-export for consumers that already import from demo.ts
 export { DEMO_CREDENTIALS }
@@ -65,32 +75,33 @@ export async function seedDemoData(c: Context<AppEnv>) {
     console.log(`Demo seed: counter set to ${SEED_COUNTER_VALUE}`)
   }
 
-  // Notes: seed if empty
-  const existingNotes = await listNotes(db)
-  if (!existingNotes.length) {
-    for (const text of SEED_NOTES) {
-      await addNote(db, text)
-    }
-    console.log(`Demo seed: added ${SEED_NOTES.length} notes`)
-  }
-
-  // Tasks: seed for each demo user if they have zero tasks
+  // Notes + Tasks: seed for each demo user if they have zero items
   for (const cred of DEMO_CREDENTIALS) {
     const user = await drizzleDb.select({ id: userTable.id })
       .from(userTable).where(eq(userTable.email, cred.email)).get()
     if (!user) continue
 
-    const existing = await listTasks(drizzleDb, user.id)
-    if (existing.length > 0) continue
-
-    const seedTasks = cred.role === 'admin' ? ADMIN_TASKS : USER_TASKS
-    for (const t of seedTasks) {
-      const created = await createTask(drizzleDb, user.id, { taskTitle: t.title })
-      if (t.status !== 'pending') {
-        await updateTask(drizzleDb, user.id, created.id, { status: t.status })
+    // Notes
+    const existingNotes = await listNotes(drizzleDb, user.id)
+    if (!existingNotes.length) {
+      for (const text of SEED_NOTES) {
+        await createNote(drizzleDb, user.id, { newNote: text })
       }
+      console.log(`Demo seed: added ${SEED_NOTES.length} notes for ${cred.email}`)
     }
-    console.log(`Demo seed: added ${seedTasks.length} tasks for ${cred.email}`)
+
+    // Tasks
+    const existingTasks = await listTasks(drizzleDb, user.id)
+    if (!existingTasks.length) {
+      const seedTasks = cred.role === 'admin' ? ADMIN_TASKS : USER_TASKS
+      for (const t of seedTasks) {
+        const created = await createTask(drizzleDb, user.id, { taskTitle: t.title })
+        if (t.status !== 'pending') {
+          await updateTask(drizzleDb, user.id, created.id, { status: t.status })
+        }
+      }
+      console.log(`Demo seed: added ${seedTasks.length} tasks for ${cred.email}`)
+    }
   }
 }
 

@@ -1,5 +1,6 @@
 import { betterAuth } from 'better-auth'
 import { admin } from 'better-auth/plugins/admin'
+import { multiSession } from 'better-auth/plugins/multi-session'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { drizzle as drizzleD1, drizzle } from 'drizzle-orm/d1'
 import type { Context, MiddlewareHandler } from 'hono'
@@ -30,6 +31,7 @@ export function getAuth(c: Context<AppEnv>) {
         defaultRole: 'user',
         adminRoles: ['admin'],
       }),
+      multiSession({ maximumSessions: 10 }),
     ],
   })
 }

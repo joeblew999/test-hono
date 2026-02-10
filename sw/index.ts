@@ -2,7 +2,7 @@
 import { Hono } from 'hono'
 import { handle } from 'hono/service-worker'
 import { initSqlJsDB, createD1Compat, getMutationCount, resetMutationCount } from './sqljs-adapter'
-import { getCount, listNotes } from '../queries'
+import { getCount } from '../queries'
 import { API } from '../constants'
 import swApi from './api'
 
@@ -35,7 +35,7 @@ app.use('/api/*', async (c, next) => {
   await next()
 })
 
-// Mount API routes (counter + notes)
+// Mount API routes (counter only)
 app.route('/api', swApi())
 
 // Local mode status — returns mutation count for the banner
@@ -51,7 +51,6 @@ app.post(API.LOCAL_SYNC, async (c) => {
   try {
     // Read local state via query layer
     const count = await getCount(db!)
-    const notes = await listNotes(db!)
 
     // Sync counter to server (field: inputValue per SetCountSchema)
     const counterRes = await fetch(`${origin}${API.COUNTER_SET}`, {
@@ -61,18 +60,8 @@ app.post(API.LOCAL_SYNC, async (c) => {
     })
     if (!counterRes.ok) throw new Error(`Counter sync failed: ${counterRes.status}`)
 
-    // Sync notes: clear server notes, then push local ones (field: newNote per AddNoteSchema)
-    await fetch(`${origin}${API.NOTES_RESET}`, { method: 'POST' })
-    for (const note of notes) {
-      await fetch(`${origin}${API.NOTES}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ newNote: note.text }),
-      })
-    }
-
     resetMutationCount()
-    return c.json({ synced: true, counter: count, notes: notes.length })
+    return c.json({ synced: true, counter: count })
   } catch (e: any) {
     return c.json({ synced: false, error: e.message }, 500)
   }
