@@ -313,6 +313,20 @@ tasks:
     cmds:
       - tail -f {{.CORROSION_LOG}}
 
+  # --- Service Worker (Local-First Mode) ---
+
+  sw:build:
+    desc: "Bundles Service Worker (sw.ts → static/sw.js)"
+    cmds:
+      - bun build sw.ts --outfile static/sw.js --target browser --minify
+      - echo "Built static/sw.js ($(wc -c < static/sw.js | tr -d ' ') bytes)"
+
+  sw:dev:
+    desc: "Builds SW and starts Workers dev server"
+    cmds:
+      - task: sw:build
+      - task: dev
+
   # --- Fly.io (Bun + SQLite + Persistent SSE) ---
 
   fly:dev:

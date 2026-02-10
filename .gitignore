@@ -36,6 +36,7 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # wrangler
 .wrangler/
+.dev.vars
 
 # playwright
 test-results/
@@ -43,6 +44,9 @@ test-results/
 
 # bun:sqlite local data
 data/
+
+# service worker build output
+static/sw.js
 
 # cloned reference repos
 .src/

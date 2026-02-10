@@ -1,13 +1,17 @@
-# Plan: Hono Service Worker + DuckDB WASM (Local-First Mode)
+# Hono Service Worker — Local-First Mode (Implemented)
 
-## Context
+## Status: DONE (Phase 1)
 
-Datastar makes `@get('/api/counter')`, `@post('/api/notes')` etc. via `fetch()`. Currently these hit a Cloudflare Worker or Bun server. The idea: register Hono as a **browser Service Worker** that intercepts these exact same fetch calls. Datastar thinks it's talking to a server, but everything runs locally in the browser — queries hit **DuckDB WASM** instead of D1/SQLite. This gives us:
+Datastar makes `@get('/api/counter')`, `@post('/api/notes')` etc. via `fetch()`. We register Hono as a **browser Service Worker** that intercepts these exact same fetch calls. Datastar thinks it's talking to a server, but everything runs locally in the browser — queries hit **sql.js** (SQLite WASM) instead of D1.
+
+> **Note:** Original plan called for DuckDB WASM, but DuckDB requires a Web Worker thread (33 MB WASM). Service Workers cannot spawn Web Workers. sql.js (644 KB) is a direct SQLite WASM that works synchronously in the SW context and uses the exact same SQL dialect as D1 — zero query changes needed.
+
+### What this gives us:
 
 1. **Offline-first** — works without network
 2. **Same codebase** — same Hono routes, same SQL queries, 3rd deployment target
-3. **DuckDB portability** — same SQL dialect on client (WASM) and server (native DuckDB for Bun)
-4. **Zero Datastar changes** — Service Worker interception is transparent to `fetch()`
+3. **Zero Datastar changes** — Service Worker interception is transparent to `fetch()`
+4. **Tiny footprint** — 644 KB WASM + 900 KB bundled JS
 
 ## How It Works
 
@@ -23,8 +27,8 @@ Browser                          Network
 │  │ Hono app    │     │
 │  │ routes/*    │     │
 │  │     │       │     │
-│  │  DuckDB     │     │
-│  │  WASM       │     │
+│  │  sql.js     │     │
+│  │  (SQLite)   │     │
 │  └─────────────┘     │
 └─────────────────────┘
 ```
@@ -34,10 +38,11 @@ Browser                          Network
 | | Workers (index.ts) | Bun (server.ts) | **Service Worker (sw.ts)** |
 |---|---|---|---|
 | Runtime | Cloudflare Workers | Bun | Browser |
-| Database | D1 | bun:sqlite | DuckDB WASM |
+| Database | D1 | bun:sqlite | sql.js (SQLite WASM) |
 | SSE | One-shot | Persistent | One-shot |
-| Auth | Better Auth + D1 | Better Auth + SQLite | Simplified/none |
-| Entry | `export default app` | `Bun.serve(app)` | `fire(app)` |
+| Auth | Better Auth + D1 | Better Auth + SQLite | None (Phase 1) |
+| Entry | `export default app` | `Bun.serve(app)` | `handle(app)` |
+| DB size | Remote | 0 (file) | In-memory |
 
 ## Key Technical Findings
 

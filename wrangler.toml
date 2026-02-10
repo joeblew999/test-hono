@@ -4,9 +4,8 @@ compatibility_date = "2024-02-06"
 compatibility_flags = ["nodejs_compat"]
 
 [vars]
-BETTER_AUTH_SECRET = "dev-secret-change-in-production"
-BETTER_AUTH_URL = "http://localhost:8787"
 DEMO_MODE = "true"
+# Auth vars are in .dev.vars (local dev) and wrangler secrets (production)
 
 [assets]
 directory = "./static"

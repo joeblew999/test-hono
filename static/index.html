@@ -541,8 +541,31 @@
             <a href="/ui" class="link link-hover text-base-content/50">API Docs</a>
             <a href="/api/doc" class="link link-hover text-base-content/50">OpenAPI Spec</a>
             <a href="/api/counter" class="link link-hover text-base-content/50">API JSON</a>
+            <a id="local-mode-link" href="?local" class="link link-hover text-base-content/50" style="display:none">Local Mode</a>
+            <span id="local-mode-badge" class="badge badge-sm badge-primary" style="display:none">Local Mode</span>
         </div>
 
     </div>
+
+    <script>
+    // Service Worker: local-first mode (opt-in via ?local query param)
+    (function() {
+        var isLocal = new URLSearchParams(location.search).has('local');
+        var swRegistered = !!navigator.serviceWorker?.controller;
+
+        if (isLocal && 'serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js')
+                .then(function(reg) { console.log('SW registered:', reg.scope) })
+                .catch(function(err) { console.error('SW failed:', err) });
+        }
+
+        // Show local mode badge if SW is active, or show link to enable it
+        if (swRegistered || isLocal) {
+            document.getElementById('local-mode-badge').style.display = '';
+        } else {
+            document.getElementById('local-mode-link').style.display = '';
+        }
+    })();
+    </script>
 </body>
 </html>

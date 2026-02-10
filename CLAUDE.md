@@ -4,7 +4,10 @@
 
 - **index.ts** — Cloudflare Workers entry point (auth handler, API routes, MCP endpoint)
 - **server.ts** — Bun/Fly.io entry point (persistent SSE with broadcast, auth, MCP)
+- **sw.ts** — Service Worker entry point (local-first with sql.js, opt-in via `?local`)
 - **api.ts** — Route composer: imports from routes/, accepts optional BroadcastConfig
+- **sw-api.ts** — Slim route composer for SW (counter + notes only, no auth/tasks/MCP)
+- **sqljs-adapter.ts** — sql.js → D1Database interface adapter (browser)
 - **routes/counter.ts** — Counter schemas, OpenAPI routes, handlers (public)
 - **routes/notes.ts** — Notes CRUD schemas, OpenAPI routes, handlers (public)
 - **routes/tasks.ts** — Tasks CRUD OpenAPI routes with auth middleware (protected)
@@ -55,12 +58,15 @@ Single set of OpenAPI routes serves both JSON and SSE:
 - `respondFragment(c, data)` → patches signals AND DOM via `datastar-patch-elements`
 - No duplicate routes — Datastar frontend hits same URLs as REST API
 
-## Dual-Mode Deployment
+## Tri-Mode Deployment
 
 - **Workers** (`index.ts`): D1, one-shot SSE, `api()` with no broadcast
 - **Fly.io** (`server.ts`): bun:sqlite, persistent SSE, `api(broadcastConfig)`
+- **Service Worker** (`sw.ts`): sql.js (SQLite WASM), local-first, opt-in via `?local` query param
 - `db.ts` adapter wraps bun:sqlite to match D1Database interface
-- Same routes, same frontend, same 15 tests on both platforms
+- `sqljs-adapter.ts` wraps sql.js to match D1Database interface (browser)
+- `sw-api.ts` — slim route composer (counter + notes only, no auth/tasks/MCP)
+- Same routes, same frontend, same 23 tests on all platforms
 
 ## Database
 
@@ -96,8 +102,8 @@ Single set of OpenAPI routes serves both JSON and SSE:
 
 ## Testing
 
-- 21 Playwright e2e tests (9 counter + 6 notes/demo + 6 auth)
-- `task test` — headed + serial (real browser, ~12s, zero race conditions)
+- 23 Playwright e2e tests (9 counter + 6 notes/demo + 6 auth + 2 service worker)
+- `task test` — headed + serial (real browser, ~25s, zero race conditions)
 - `task test:ci` — headless + parallel (fast, ~4s, for CI)
 - `task screenshots` — headed capture to docs/screenshots/
 - `pressSequentially` not `fill` for `data-bind` inputs
@@ -107,8 +113,10 @@ Single set of OpenAPI routes serves both JSON and SSE:
 
 - `task dev` — start Workers dev server with logs (port 8787)
 - `task fly:dev` — start Bun server (port 3000, persistent SSE)
-- `task test` — run 21 e2e tests headed + serial
-- `task test:ci` — run 21 e2e tests headless + parallel
+- `task sw:build` — bundle Service Worker (sw.ts → static/sw.js)
+- `task sw:dev` — build SW + start dev server
+- `task test` — run 23 e2e tests headed + serial
+- `task test:ci` — run 23 e2e tests headless + parallel
 - `task db:generate` — generate SQL migration from schema.ts changes (drizzle-kit)
 - `task db:studio` — open Drizzle Studio (browser DB explorer)
 - `task deploy` — deploy to Cloudflare Workers (runs remote D1 migrations)
