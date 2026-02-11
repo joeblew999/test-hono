@@ -7,34 +7,23 @@ const SEED_COUNT = String(SEED_COUNTER_VALUE)
 const SEED_COUNT_PLUS_1 = String(SEED_COUNTER_VALUE + 1)
 const SEED_COUNT_PLUS_2 = String(SEED_COUNTER_VALUE + 2)
 
-/** Wait for SW to register, activate, and claim the page */
+/** Wait for SW to register, activate, and claim the page.
+ *  The page auto-reloads on first controllerchange so all data-init SSE connections go through the SW. */
 async function waitForSW(page: any) {
-  // Register SW
   await page.goto(`${BASE}/?local`)
 
-  // Wait for SW to be registered
-  await page.waitForFunction(() => {
-    return navigator.serviceWorker?.ready !== undefined
-  }, null, { timeout: 10000 })
-
-  // Wait for SW to claim this page (skipWaiting + clients.claim)
-  const claimed = await page.evaluate(async () => {
-    const reg = await navigator.serviceWorker.ready
-    // If controller is already set, we're good
-    if (navigator.serviceWorker.controller) return true
-    // Otherwise wait for controllerchange event
-    return new Promise<boolean>((resolve) => {
-      navigator.serviceWorker.addEventListener('controllerchange', () => resolve(true))
-      // Timeout fallback
-      setTimeout(() => resolve(false), 8000)
-    })
-  })
-
-  if (!claimed) {
-    // Reload to let SW intercept — fallback for slow activation
-    await page.reload()
-    await page.waitForFunction(() => !!navigator.serviceWorker.controller, null, { timeout: 5000 })
+  // Page auto-reloads when SW first activates (controllerchange → location.reload).
+  // Poll across potential reload to verify SW controller is set.
+  for (let i = 0; i < 30; i++) {
+    try {
+      const ok = await page.evaluate(() => !!navigator.serviceWorker?.controller)
+      if (ok) return
+    } catch {
+      // Page might be mid-reload, retry
+    }
+    await page.waitForTimeout(500)
   }
+  throw new Error('SW did not activate within 15s')
 }
 
 test.describe('Service Worker (local mode)', () => {
@@ -59,10 +48,6 @@ test.describe('Service Worker (local mode)', () => {
   test('registers SW and counter works offline with seed data', async ({ page }) => {
     await waitForSW(page)
 
-    // Reload so all data-init requests go through SW
-    await page.reload()
-    await page.waitForFunction(() => !!navigator.serviceWorker.controller, null, { timeout: 5000 })
-
     // Counter starts at seed value
     await expect(page.locator('.count')).toHaveText(SEED_COUNT, { timeout: 3000 })
 
@@ -82,10 +67,6 @@ test.describe('Service Worker (local mode)', () => {
   test('data persists across SW restarts via IndexedDB', async ({ page }) => {
     await waitForSW(page)
 
-    // Reload so all data-init requests go through SW
-    await page.reload()
-    await page.waitForFunction(() => !!navigator.serviceWorker.controller, null, { timeout: 5000 })
-
     // Counter starts at seed value, increment by 1
     await expect(page.locator('.count')).toHaveText(SEED_COUNT, { timeout: 3000 })
     await page.locator('button', { hasText: '+' }).click()
@@ -99,8 +80,6 @@ test.describe('Service Worker (local mode)', () => {
 
     // Re-register SW — it should restore DB from IndexedDB
     await waitForSW(page)
-    await page.reload()
-    await page.waitForFunction(() => !!navigator.serviceWorker.controller, null, { timeout: 5000 })
 
     // Counter should still be seed+1 (persisted in IndexedDB)
     await expect(page.locator('.count')).toHaveText(SEED_COUNT_PLUS_1, { timeout: 5000 })
@@ -112,8 +91,6 @@ test.describe('Service Worker (local mode)', () => {
 
     // Enter local mode, make changes
     await waitForSW(page)
-    await page.reload()
-    await page.waitForFunction(() => !!navigator.serviceWorker.controller, null, { timeout: 5000 })
 
     // Increment counter from seed → seed+1
     await expect(page.locator('.count')).toHaveText(SEED_COUNT, { timeout: 3000 })
