@@ -1,3 +1,4 @@
+// @ts-nocheck — page.evaluate runs in browser context with DOM APIs
 import { test, expect } from '@playwright/test'
 import { SEED_COUNTER_VALUE } from '../sw/seed-data'
 import { API, DEFAULT_BASE_URL } from '../constants'
@@ -7,51 +8,41 @@ const SEED_COUNT = String(SEED_COUNTER_VALUE)
 const SEED_COUNT_PLUS_1 = String(SEED_COUNTER_VALUE + 1)
 const SEED_COUNT_PLUS_2 = String(SEED_COUNTER_VALUE + 2)
 
-/** Wait for SW to register, activate, and claim the page.
- *  The page auto-reloads on first controllerchange so all data-init SSE connections go through the SW. */
-async function waitForSW(page: any) {
+/** Wait for local mode to initialize: coordinator + wa-sqlite + OPFS.
+ *  No reload needed — fetch override is installed synchronously before Datastar. */
+async function waitForLocalMode(page: any) {
   await page.goto(`${BASE}/?local`)
-
-  // Page auto-reloads when SW first activates (controllerchange → location.reload).
-  // Poll across potential reload to verify SW controller is set.
-  for (let i = 0; i < 30; i++) {
-    try {
-      const ok = await page.evaluate(() => !!navigator.serviceWorker?.controller)
-      if (ok) return
-    } catch {
-      // Page might be mid-reload, retry
-    }
-    await page.waitForTimeout(500)
-  }
-  throw new Error('SW did not activate within 15s')
+  // Wait for counter to populate with seed value (coordinator + worker init)
+  await expect(page.locator('.count')).toHaveText(SEED_COUNT, { timeout: 15000 })
 }
 
-test.describe('Service Worker (local mode)', () => {
-  // Clear IndexedDB before each test so each starts with fresh seeded data
+test.describe('Local mode (Leader Election + OPFS)', () => {
+  // Clear OPFS before each test so each starts with fresh seeded data
   test.beforeEach(async ({ page }) => {
-    await page.goto(`${BASE}/?local`)
-    await page.evaluate(() => {
-      return new Promise<void>((resolve) => {
-        const req = indexedDB.deleteDatabase('sw-sqljs')
-        req.onsuccess = () => resolve()
-        req.onerror = () => resolve()
-        req.onblocked = () => resolve()
-      })
-    })
-    // Unregister any existing SW so it re-initializes with fresh DB
+    // Navigate to origin (non-local) to kill any coordinator/worker
+    await page.goto(`${BASE}/`)
+    await page.waitForTimeout(300)
+    // Clear OPFS storage for wa-sqlite
     await page.evaluate(async () => {
-      const regs = await navigator.serviceWorker.getRegistrations()
+      try {
+        const root = await navigator.storage.getDirectory()
+        await root.removeEntry('wa-sqlite-local', { recursive: true })
+      } catch {}
+    })
+    // Also unregister any leftover Service Workers from old tests
+    await page.evaluate(async () => {
+      const regs = await navigator.serviceWorker?.getRegistrations() ?? []
       for (const reg of regs) await reg.unregister()
     })
   })
 
-  test('registers SW and counter works offline with seed data', async ({ page }) => {
-    await waitForSW(page)
+  test('counter works offline with seed data', async ({ page }) => {
+    await waitForLocalMode(page)
 
     // Counter starts at seed value
     await expect(page.locator('.count')).toHaveText(SEED_COUNT, { timeout: 3000 })
 
-    // Click increment button — should be intercepted by SW
+    // Click increment button — intercepted by fetch override → local Hono app
     await page.locator('button', { hasText: '+' }).click()
     await expect(page.locator('.count')).toHaveText(SEED_COUNT_PLUS_1, { timeout: 3000 })
 
@@ -64,25 +55,43 @@ test.describe('Service Worker (local mode)', () => {
     await expect(page.locator('.count')).toHaveText(SEED_COUNT_PLUS_1, { timeout: 3000 })
   })
 
-  test('data persists across SW restarts via IndexedDB', async ({ page }) => {
-    await waitForSW(page)
+  test('data persists across page navigations via OPFS', async ({ page }) => {
+    await waitForLocalMode(page)
 
     // Counter starts at seed value, increment by 1
     await expect(page.locator('.count')).toHaveText(SEED_COUNT, { timeout: 3000 })
     await page.locator('button', { hasText: '+' }).click()
     await expect(page.locator('.count')).toHaveText(SEED_COUNT_PLUS_1, { timeout: 3000 })
 
-    // Unregister SW (simulates browser restart)
-    await page.evaluate(async () => {
-      const regs = await navigator.serviceWorker.getRegistrations()
-      for (const reg of regs) await reg.unregister()
-    })
+    // Navigate away (kills coordinator + worker, releases OPFS handles)
+    await page.goto('about:blank')
+    await page.waitForTimeout(300)
 
-    // Re-register SW — it should restore DB from IndexedDB
-    await waitForSW(page)
+    // Navigate back to local mode — new coordinator reads persisted OPFS data
+    await page.goto(`${BASE}/?local`)
+    // Counter should still be seed+1 (persisted in OPFS)
+    await expect(page.locator('.count')).toHaveText(SEED_COUNT_PLUS_1, { timeout: 15000 })
+  })
 
-    // Counter should still be seed+1 (persisted in IndexedDB)
-    await expect(page.locator('.count')).toHaveText(SEED_COUNT_PLUS_1, { timeout: 5000 })
+  test('online→offline round-trip: counter not zero after switching', async ({ page }) => {
+    // Start in online mode
+    await page.goto(`${BASE}/`)
+    await expect(page.locator('.count')).not.toHaveText('', { timeout: 5000 })
+
+    // Switch to local mode via ?local (simulates clicking "Go Offline")
+    await page.goto(`${BASE}/?local`)
+    // Counter should show seed value (42), NOT zero
+    await expect(page.locator('.count')).toHaveText(SEED_COUNT, { timeout: 15000 })
+
+    // Increment works in local mode
+    await page.locator('button', { hasText: '+' }).click()
+    await expect(page.locator('.count')).toHaveText(SEED_COUNT_PLUS_1, { timeout: 3000 })
+
+    // Switch back to online mode (Go Online button)
+    await page.locator('#local-exit-btn').click()
+    await page.waitForURL(`${BASE}/`)
+    // Online counter loads from server (independent of local state)
+    await expect(page.locator('.count')).not.toHaveText('', { timeout: 5000 })
   })
 
   test('sync pushes local state to the real server', async ({ page, request }) => {
@@ -90,14 +99,14 @@ test.describe('Service Worker (local mode)', () => {
     await request.post(`${BASE}${API.COUNTER_RESET}`)
 
     // Enter local mode, make changes
-    await waitForSW(page)
+    await waitForLocalMode(page)
 
     // Increment counter from seed → seed+1
     await expect(page.locator('.count')).toHaveText(SEED_COUNT, { timeout: 3000 })
     await page.locator('button', { hasText: '+' }).click()
     await expect(page.locator('.count')).toHaveText(SEED_COUNT_PLUS_1, { timeout: 3000 })
 
-    // Trigger sync via API (same as clicking the Sync button)
+    // Trigger sync via API (goes through fetch override → local Hono app → origFetch to server)
     const syncResult: any = await page.evaluate(async (syncUrl: string) => {
       const res = await fetch(syncUrl, { method: 'POST' })
       return res.json()
@@ -105,13 +114,7 @@ test.describe('Service Worker (local mode)', () => {
     expect(syncResult.synced).toBe(true)
     expect(syncResult.counter).toBe(SEED_COUNTER_VALUE + 1)
 
-    // Unregister SW so subsequent fetches hit the real server
-    await page.evaluate(async () => {
-      const regs = await navigator.serviceWorker.getRegistrations()
-      for (const reg of regs) await reg.unregister()
-    })
-
-    // Verify server state via API (bypassing any SW)
+    // Verify server state via Playwright's request fixture (bypasses page's fetch override)
     const counterRes = await request.get(`${BASE}${API.COUNTER}`)
     const counterData = await counterRes.json()
     expect(counterData.count).toBe(SEED_COUNTER_VALUE + 1)

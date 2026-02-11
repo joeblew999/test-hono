@@ -45,8 +45,11 @@ test-results/
 # bun:sqlite local data
 data/
 
-# service worker build output
+# local-mode build outputs
 static/sw.js
+static/local-mode.js
+static/db-worker.js
+static/wa-sqlite.wasm
 
 # cloned reference repos
 .src/

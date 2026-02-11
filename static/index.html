@@ -55,13 +55,14 @@
         <span>&#9889; Online Mode &mdash; Cloudflare D1</span>
         <a href="?local" class="btn btn-xs btn-ghost border border-success-content/30 text-success-content">Go Offline</a>
     </div>
-    <!-- Local Mode Banner (hidden by default, shown by JS when SW is active) -->
-    <div id="local-mode-banner" class="bg-primary text-primary-content text-center py-2 px-4 text-sm font-medium sticky top-0 z-50 flex items-center justify-center gap-3 flex-wrap" style="display:none">
-        <span>&#9889; Local Mode &mdash; IndexedDB persistence</span>
-        <span id="local-net-status" class="badge badge-sm badge-ghost text-primary-content border-primary-content/30">checking...</span>
-        <span id="local-changes" class="badge badge-sm badge-ghost text-primary-content border-primary-content/30" style="display:none"></span>
-        <button id="local-sync-btn" class="btn btn-xs btn-ghost border border-primary-content/30 text-primary-content" style="display:none">Sync to Server</button>
-        <button id="local-exit-btn" class="btn btn-xs btn-ghost border border-primary-content/30 text-primary-content">Go Online</button>
+    <!-- Local Mode Banner (hidden by default, shown by JS when ?local is active) -->
+    <div id="local-mode-banner" class="bg-warning text-warning-content text-center py-2 px-4 text-sm font-medium sticky top-0 z-50 flex items-center justify-center gap-3 flex-wrap" style="display:none">
+        <span>&#9889; Local Mode &mdash; OPFS persistence</span>
+        <span id="local-role-badge" class="badge badge-sm badge-outline text-warning-content border-warning-content/50">...</span>
+        <span id="local-net-status" class="badge badge-sm badge-outline text-warning-content border-warning-content/50">checking...</span>
+        <span id="local-changes" class="badge badge-sm badge-outline text-warning-content border-warning-content/50" style="display:none"></span>
+        <button id="local-sync-btn" class="btn btn-xs btn-ghost border border-warning-content/50 text-warning-content" style="display:none">Sync to Server</button>
+        <button id="local-exit-btn" class="btn btn-xs btn-ghost border border-warning-content/50 text-warning-content">Go Online</button>
     </div>
     <div class="max-w-4xl mx-auto px-6 py-12"
          data-signals='{"count": 0, "inputValue": 0, "lastKey": "", "isFetching": false, "newNote": "", "noteCount": 0, "noteError": "", "elapsed": 0, "debouncedText": "", "authEmail": "admin@example.com", "authPassword": "admin123", "authName": "Admin", "authUser": "", "authRole": "", "authError": "", "authMode": "signup", "taskTitle": "", "taskDesc": "", "taskFilter": "", "taskCount": 0, "taskError": "", "sessionCount": 0, "revokeSessionToken": ""}'
@@ -523,53 +524,59 @@
     </div>
 
     <script>
-    // Service Worker: local-first mode (opt-in via ?local query param)
+    // Local-first mode: Web Locks leader election + wa-sqlite OPFS (opt-in via ?local query param)
+    // This script runs SYNCHRONOUSLY before Datastar so the fetch override is in place
+    // before any data-init SSE connections fire.
     (function() {
         var isLocal = new URLSearchParams(location.search).has('local');
-        var swRegistered = !!navigator.serviceWorker?.controller;
 
-        if (isLocal && 'serviceWorker' in navigator) {
-            // On first activation, reload so all data-init SSE connections go through the SW
-            if (!swRegistered) {
-                navigator.serviceWorker.addEventListener('controllerchange', function() {
-                    location.reload();
-                });
-            }
-            navigator.serviceWorker.register('/sw.js')
-                .then(function(reg) { console.log('SW registered:', reg.scope) })
-                .catch(function(err) { console.error('SW failed:', err) });
-        }
+        if (isLocal) {
+            // 1. Save original fetch and install override BEFORE Datastar loads
+            window.__origFetch = window.fetch.bind(window);
+            var ready = new Promise(function(r) { window.__resolveLocal = r; });
+            window.fetch = function(input, init) {
+                var rawUrl = typeof input === 'string' ? input : (input instanceof URL ? input.href : input.url);
+                var url = new URL(rawUrl, location.origin);
+                if (url.pathname.startsWith('/api/')) {
+                    return ready.then(function(handler) { return handler(input, init); });
+                }
+                return window.__origFetch(input, init);
+            };
 
-        if (swRegistered || isLocal) {
-            // Show prominent banner
+            // 2. Load the local-mode module (coordinator + Hono app)
+            var s = document.createElement('script');
+            s.type = 'module';
+            s.src = '/local-mode.js';
+            document.head.appendChild(s);
+
+            // 3. Show banner + update DOM
             document.getElementById('local-mode-banner').style.display = '';
-            // Update subtitle
             var sub = document.getElementById('page-subtitle');
             if (sub) sub.textContent = 'Datastar v1 patterns with local-first SQLite \u2014 all data in your browser, no server required';
-            // Remove auth bar (SW has no auth routes; must remove, not hide, because data-show overrides display)
+            // Remove auth bar (must remove, not hide, because data-show overrides display)
             document.querySelectorAll('.header-auth').forEach(function(el) { el.remove(); });
             // Swap tech badges for local-mode stack
             var badges = document.getElementById('tech-badges');
             if (badges) badges.innerHTML =
                 '<span class="badge badge-outline badge-sm">Hono</span>' +
                 '<span class="badge badge-outline badge-sm">Datastar v1 RC.7</span>' +
-                '<span class="badge badge-outline badge-sm">sql.js (SQLite WASM)</span>' +
-                '<span class="badge badge-outline badge-sm">IndexedDB</span>' +
-                '<span class="badge badge-outline badge-sm">Service Worker</span>';
-            // Remove auth-dependent sections (tasks, admin, sessions — no auth in SW mode)
+                '<span class="badge badge-outline badge-sm">wa-sqlite (WASM)</span>' +
+                '<span class="badge badge-outline badge-sm">OPFS</span>' +
+                '<span class="badge badge-outline badge-sm">Web Worker</span>';
+            // Remove auth-dependent sections (tasks, admin, sessions — no auth in local mode)
             var authGroup = document.getElementById('auth-tasks-group');
             if (authGroup) authGroup.remove();
-            // Remove session check (would 404 in SW mode)
+            // Remove session check (would 404 in local mode)
             var sessionInit = document.querySelector('[data-init="@get(\'/api/session\')"]');
             if (sessionInit) sessionInit.remove();
 
-            // --- Real network detection (HEAD to / bypasses SW which only handles /api/*) ---
+            // 4. Real network detection (uses original fetch, bypasses override)
             var netEl = document.getElementById('local-net-status');
             var serverReachable = false;
             function checkServer() {
                 var ctrl = new AbortController();
                 var timer = setTimeout(function() { ctrl.abort(); }, 3000);
-                fetch('/', { method: 'HEAD', signal: ctrl.signal, cache: 'no-store' })
+                window.__origFetch('/', { method: 'HEAD', signal: ctrl.signal, cache: 'no-store' })
                     .then(function(r) {
                         clearTimeout(timer);
                         serverReachable = r.ok;
@@ -584,7 +591,7 @@
             checkServer();
             setInterval(checkServer, 10000);
 
-            // --- Mutation counter polling ---
+            // 5. Mutation counter polling (goes through our override → Hono app)
             var changesEl = document.getElementById('local-changes');
             var syncBtn = document.getElementById('local-sync-btn');
             function pollStatus() {
@@ -602,7 +609,7 @@
             setInterval(pollStatus, 2000);
             setTimeout(pollStatus, 500);
 
-            // --- Sync to server ---
+            // 6. Sync to server (goes through override → Hono app → uses origFetch internally)
             syncBtn.addEventListener('click', function() {
                 syncBtn.textContent = 'Syncing\u2026';
                 syncBtn.disabled = true;
@@ -625,13 +632,9 @@
                 });
             });
 
-            // --- Exit local mode ---
+            // 7. Exit local mode (just navigate — no SW to unregister)
             document.getElementById('local-exit-btn').addEventListener('click', function() {
-                navigator.serviceWorker.getRegistrations().then(function(regs) {
-                    return Promise.all(regs.map(function(r) { return r.unregister() }));
-                }).then(function() {
-                    location.href = '/';
-                });
+                location.href = '/';
             });
         } else {
             // Show online mode banner

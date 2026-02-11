@@ -1,12 +1,12 @@
 import { test, expect } from '@playwright/test'
 import { API, DEFAULT_BASE_URL } from '../constants'
+import { signInViaLoginPage } from './fixtures'
 
 const VIDEO_SIZE = { width: 640, height: 720 }
 
 test('sync demo: cross-tab live updates via persistent SSE', async ({ browser, request }) => {
-  // Reset to clean state
+  // Reset counter (public endpoint)
   await request.post(API.COUNTER_RESET)
-  await request.post(API.NOTES_RESET)
 
   const baseURL = test.info().project.use.baseURL || DEFAULT_BASE_URL
 
@@ -20,6 +20,13 @@ test('sync demo: cross-tab live updates via persistent SSE', async ({ browser, r
 
   const tabA = await ctxA.newPage()
   const tabB = await ctxB.newPage()
+
+  // Sign in both tabs (notes require auth)
+  await signInViaLoginPage(tabA, 'demo@example.com', 'demo1234')
+  await signInViaLoginPage(tabB, 'demo@example.com', 'demo1234')
+
+  // Reset notes after sign-in (auth required)
+  await tabA.evaluate((url) => fetch(url, { method: 'POST' }), API.NOTES_RESET)
 
   // Both tabs navigate and load initial state
   await tabA.goto(baseURL)
@@ -53,7 +60,7 @@ test('sync demo: cross-tab live updates via persistent SSE', async ({ browser, r
   // --- Notes sync ---
   // Tab A adds a note
   await tabA.locator('.notes-form input[type="text"]').pressSequentially('Synced from Tab A!')
-  await tabA.getByRole('button', { name: 'Add' }).click()
+  await tabA.getByRole('button', { name: 'Add', exact: true }).click()
 
   // Tab A shows the note immediately
   await expect(tabA.locator('.note-item', { hasText: 'Synced from Tab A!' })).toBeVisible()

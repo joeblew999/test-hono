@@ -28,11 +28,12 @@
 ### db/ (database adapters)
 - **db/bun.ts** — bun:sqlite → D1 adapter (Bun mode only)
 
-### sw/ (Service Worker)
-- **sw/index.ts** — Service Worker entry point (local-first with sql.js, opt-in via `?local`)
-- **sw/api.ts** — Slim route composer for SW (counter only, no auth/notes/tasks/MCP)
-- **sw/sqljs-adapter.ts** — sql.js → D1Database interface adapter (browser)
-- **sw/seed-data.ts** — Seed data constants (shared by SW and demo.ts)
+### sw/ (Local-First Mode)
+- **sw/db-worker.ts** — Dedicated Worker: wa-sqlite + OPFS (AccessHandlePoolVFS), SQL execution
+- **sw/db-coordinator.ts** — Leader Election via Web Locks API + BroadcastChannel cross-tab proxying
+- **sw/local-mode.ts** — Entry point: Hono app + fetch handler resolution (bundled into static/local-mode.js)
+- **sw/api.ts** — Slim OpenAPI route composer for local mode (counter only, no auth/notes/tasks/MCP)
+- **sw/seed-data.ts** — Seed data constants (shared by local mode and demo.ts)
 
 ### lib/mcp/ (MCP server plugins)
 - **lib/mcp/index.ts** — `handleMcpRequest()` + `createMcpServer()` orchestrator
@@ -95,11 +96,35 @@ Single set of OpenAPI routes serves both JSON and SSE:
 
 - **Workers** (`index.ts`): D1, persistent SSE via D1 polling (counter), `api()` with no broadcast
 - **Fly.io** (`server.ts`): bun:sqlite, persistent SSE, `api(broadcastConfig)`
-- **Service Worker** (`sw/index.ts`): sql.js (SQLite WASM), local-first, opt-in via `?local` query param
+- **Local-First** (`sw/local-mode.ts`): wa-sqlite (WASM) + OPFS, opt-in via `?local` query param
 - `db/bun.ts` adapter wraps bun:sqlite to match D1Database interface
-- `sw/sqljs-adapter.ts` wraps sql.js to match D1Database interface (browser)
-- `sw/api.ts` — slim route composer (counter only, no auth/notes/tasks/MCP)
-- Same routes, same frontend, same 23 tests on all platforms
+- `sw/db-coordinator.ts` implements Leader Election (Web Locks) + BroadcastChannel for cross-tab D1 access
+- `sw/api.ts` — slim OpenAPI route composer (counter only, no auth/notes/tasks/MCP)
+- Same routes, same frontend, same 29 tests on all platforms
+
+## Local-First Architecture (Leader Election + OPFS)
+
+Local mode uses Web Locks API for leader election — one tab owns the database, others proxy via BroadcastChannel:
+
+```
+Tab 1 (Leader) ──→ Dedicated Worker (wa-sqlite + OPFS)
+Tab 2 (Follower) ──→ BroadcastChannel ──→ Tab 1 ──→ Worker
+Tab 3 (Follower) ──→ BroadcastChannel ──→ Tab 1 ──→ Worker
+```
+
+**Why this pattern:**
+- `FileSystemSyncAccessHandle` (fast OPFS) only works in dedicated Workers
+- SharedWorker can't use sync OPFS handles (would fall back to slow async)
+- Web Locks + BroadcastChannel gives cross-tab coordination without SharedWorker
+
+**Flow:**
+1. Page installs fetch override synchronously (before Datastar loads)
+2. `local-mode.js` module loads: runs leader election → spawns Worker (if Leader) or proxies via BroadcastChannel (if Follower)
+3. Both roles get the same D1Database interface → Hono app works identically
+4. Fetch override routes `/api/*` to the in-page Hono app
+5. Data persists in OPFS across page loads/tab closures
+
+**Build:** `task sw:build` produces `static/local-mode.js` + `static/db-worker.js` + copies `static/wa-sqlite.wasm`
 
 ## Database
 
@@ -144,7 +169,7 @@ Workers can't share I/O between requests, so persistent SSE uses D1 polling (no 
 
 ## Testing
 
-- 29 Playwright e2e tests (9 counter + 6 notes/demo + 6 auth + 4 sessions + 4 service worker)
+- 29 Playwright e2e tests (9 counter + 6 notes/demo + 6 auth + 4 sessions + 4 local mode)
 - 1 sync-demo test (two-tab cross-tab live sync, video-only)
 - 4 screenshot tests (3 viewports × 4 screenshots)
 - `task test` — headed + serial (real browser, ~30s)
@@ -167,8 +192,8 @@ Workers can't share I/O between requests, so persistent SSE uses D1 polling (no 
 
 - `task dev` — start Workers dev server with logs (port 8787)
 - `task fly:dev` — start Bun server (port 3000, persistent SSE)
-- `task sw:build` — bundle Service Worker (sw/index.ts → static/sw.js)
-- `task sw:dev` — build SW + start dev server
+- `task sw:build` — bundle local-mode (local-mode.js + db-worker.js + wa-sqlite.wasm)
+- `task sw:dev` — build local-mode + start dev server
 - `task test` — run 29 e2e tests headed + serial
 - `task test:ci` — run 29 e2e tests headless + parallel
 - `task docs` — generate all doc assets (screenshots + videos + sync demo)

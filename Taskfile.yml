@@ -195,12 +195,12 @@ tasks:
           clean=$(echo "$clean" | sed 's/-should-/-/')
           # Remove trailing "-on-click"
           clean=$(echo "$clean" | sed 's/-on-click$//')
-          # Clean SW names (Playwright truncates + hashes these)
+          # Clean local-mode names (Playwright truncates + hashes these)
           case "$name" in
-            *offline*seed*) clean="sw-offline" ;;
-            *through-SW*) clean="sw-notes-crud" ;;
-            *IndexedDB*) clean="sw-persistence" ;;
-            *real-server*) clean="sw-sync" ;;
+            *offline*seed*) clean="local-offline" ;;
+            *OPFS*|*persists*) clean="local-persistence" ;;
+            *round-trip*|*not-zero*) clean="local-roundtrip" ;;
+            *real-server*|*sync-pushes*) clean="local-sync" ;;
           esac
 
           # Convert webm → gif (two-pass palette for quality)
@@ -230,7 +230,7 @@ tasks:
           -lavfi "fps=10[x];[x][1:v]paletteuse" -loglevel error docs/videos/sync-demo.gif
         rm -f /tmp/sync_combined.webm /tmp/sync_palette.png
         rm -rf docs/videos/sync-tab-a docs/videos/sync-tab-b
-      - echo "Sync demo: docs/videos/sync-demo.gif ($(du -h docs/videos/sync-demo.gif | cut -f1))"
+        echo "Sync demo: docs/videos/sync-demo.gif ($(du -h docs/videos/sync-demo.gif | cut -f1))"
 
   cf:docs:
     desc: "Generate all documentation assets (screenshots + videos + sync demo)"
@@ -437,17 +437,22 @@ tasks:
       - fly deploy
 
   # ╔══════════════════════════════════════════════╗
-  # ║  Service Worker (sw:)                        ║
+  # ║  Local Mode (sw:)                             ║
   # ╚══════════════════════════════════════════════╝
 
   sw:build:
-    desc: "Bundle Service Worker (sw/index.ts → static/sw.js)"
+    desc: "Bundle local-mode coordinator + db-worker + copy WASM"
     cmds:
-      - bun build sw/index.ts --outfile static/sw.js --target browser --minify
-      - echo "Built static/sw.js ($(wc -c < static/sw.js | tr -d ' ') bytes)"
+      - bun build sw/local-mode.ts --outfile static/local-mode.js --target browser --minify
+      - bun build sw/db-worker.ts --outfile static/db-worker.js --target browser --format esm --minify
+      - cp node_modules/wa-sqlite/dist/wa-sqlite.wasm static/wa-sqlite.wasm
+      - |
+        echo "Built static/local-mode.js ($(wc -c < static/local-mode.js | tr -d ' ') bytes)"
+        echo "Built static/db-worker.js ($(wc -c < static/db-worker.js | tr -d ' ') bytes)"
+        echo "Copied static/wa-sqlite.wasm ($(wc -c < static/wa-sqlite.wasm | tr -d ' ') bytes)"
 
   sw:dev:
-    desc: "Build Service Worker + start Workers dev server"
+    desc: "Build local-mode bundles + start Workers dev server"
     cmds:
       - task: sw:build
       - task: cf:dev

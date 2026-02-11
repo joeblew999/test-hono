@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { API, SEL } from '../constants';
+import { signInViaLoginPage } from './fixtures';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const BASE_DIR = resolve(__dirname, '../docs/screenshots');
@@ -14,7 +15,6 @@ function screenshotDir(testInfo: { project: { name: string } }) {
 
 test.beforeEach(async ({ request }) => {
   await request.post(API.COUNTER_RESET);
-  await request.post(API.NOTES_RESET);
 });
 
 test('screenshot: full page at zero', async ({ page }, testInfo) => {
@@ -47,11 +47,14 @@ test('screenshot: counter positive', async ({ page }, testInfo) => {
 
 test('screenshot: notes with items', async ({ page }, testInfo) => {
   const dir = screenshotDir(testInfo);
+  // Notes require auth — sign in with demo user, then reset notes
+  await signInViaLoginPage(page, 'demo@example.com', 'demo1234');
+  await page.evaluate((url) => fetch(url, { method: 'POST' }), API.NOTES_RESET);
   await page.goto('/');
   await expect(page.locator(SEL.NOTES_LIST)).toContainText('No notes yet', { timeout: 5000 });
 
   const input = page.locator('.notes-form input[type="text"]');
-  const addBtn = page.getByRole('button', { name: 'Add' });
+  const addBtn = page.getByRole('button', { name: 'Add', exact: true });
 
   await input.pressSequentially('Learn Datastar RC.7 patterns');
   await addBtn.click();

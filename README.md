@@ -1,6 +1,6 @@
 # test-hono
 
-Hono + Datastar full-stack showcase — tri-mode deployment to Cloudflare Workers, Fly.io, and browser Service Worker. Same codebase, same 23 tests, same frontend.
+Hono + Datastar full-stack showcase — tri-mode deployment to Cloudflare Workers, Fly.io, and browser local-first mode. Same codebase, same 29 tests, same frontend.
 
 **Live demo:** https://test-hono.gedw99.workers.dev (demo accounts pre-seeded)
 
@@ -54,25 +54,25 @@ Two browser tabs connected via persistent SSE — increment the counter or add a
 |------------|-------------|-----------------|
 | ![Tasks](docs/videos/auth-tasks-create-and-display.gif) | ![Admin](docs/videos/auth-admin-promoted-user-sees-admin-panel.gif) | ![Unauth](docs/videos/auth-admin-unauthenticated-user-sees-sign-in-prompt.gif) |
 
-### Service Worker (Local-First)
+### Local-First (OPFS + Leader Election)
 
-| Offline Mode | Notes CRUD | Persistence | Sync to Server |
-|--------------|------------|-------------|----------------|
-| ![Offline](docs/videos/sw-offline.gif) | ![SW Notes](docs/videos/sw-notes-crud.gif) | ![Persist](docs/videos/sw-persistence.gif) | ![Sync](docs/videos/sw-sync.gif) |
+| Offline Mode | Persistence | Round-Trip | Sync to Server |
+|--------------|-------------|------------|----------------|
+| ![Offline](docs/videos/local-offline.gif) | ![Persist](docs/videos/local-persistence.gif) | ![RoundTrip](docs/videos/local-roundtrip.gif) | ![Sync](docs/videos/local-sync.gif) |
 
 ## Features
 
 - **Content-negotiated API** — single set of OpenAPI routes serves JSON (curl, Scalar) and SSE (Datastar) via `Accept` header
-- **Tri-mode deployment** — Cloudflare Workers, Fly.io (persistent SSE), and browser Service Worker from one codebase
+- **Tri-mode deployment** — Cloudflare Workers, Fly.io (persistent SSE), and browser local-first from one codebase
 - **Zero-build frontend** — plain HTML + Datastar attributes, no JSX/bundler/virtual DOM
 - **Authentication** — Better Auth with email+password, admin plugin, role-based access
 - **Task management** — authenticated CRUD with status tracking (pending/in_progress/completed)
 - **MCP endpoint** — 15 AI-agent tools (counter, notes, tasks, admin) via Streamable HTTP
-- **Local-first mode** — Service Worker + sql.js intercepts API calls, works offline
+- **Local-first mode** — wa-sqlite + OPFS with Leader Election, works offline across tabs
 - **Demo mode** — pre-seeded users, counter, notes, and tasks for instant exploration
 - **Real-time broadcast** — persistent SSE on Fly.io pushes changes to all connected tabs
 - **Multi-master sync** — Corrosion (cr-sqlite) replication across Fly.io nodes
-- **25 e2e tests** — Playwright tests covering counter, notes, auth, tasks, admin, and Service Worker
+- **29 e2e tests** — Playwright tests covering counter, notes, auth, tasks, sessions, and local-first mode
 
 ## Stack
 
@@ -82,12 +82,12 @@ Two browser tabs connected via persistent SSE — increment the counter or add a
 | Frontend | [Datastar](https://data-star.dev) v1.0.0-RC.7 (self-hosted, SSE-driven) |
 | Auth | [Better Auth](https://www.better-auth.com) (email+password, admin plugin) |
 | ORM | [Drizzle](https://orm.drizzle.team) (auth + tasks tables) |
-| Database | [Cloudflare D1](https://developers.cloudflare.com/d1/) / bun:sqlite / [sql.js](https://sql.js.org) / [Corrosion](https://github.com/joeblew999/binary-corrosion) |
+| Database | [Cloudflare D1](https://developers.cloudflare.com/d1/) / bun:sqlite / wa-sqlite + OPFS / [Corrosion](https://github.com/joeblew999/binary-corrosion) |
 | AI integration | MCP protocol via [@hono/mcp](https://github.com/honojs/middleware/tree/main/packages/mcp) |
 | Serverless | [Cloudflare Workers](https://developers.cloudflare.com/workers/) (one-shot SSE) |
 | Persistent | [Fly.io](https://fly.io) + [Bun](https://bun.sh) (real-time SSE broadcast) |
-| Local-first | Service Worker + sql.js (644 KB SQLite WASM) |
-| Tests | [Playwright](https://playwright.dev) (25 e2e tests) |
+| Local-first | Web Worker + wa-sqlite + OPFS (Leader Election) |
+| Tests | [Playwright](https://playwright.dev) (29 e2e tests) |
 | Task runner | [Task](https://taskfile.dev) |
 
 ## Quick Start
@@ -97,7 +97,7 @@ Two browser tabs connected via persistent SSE — increment the counter or add a
 ```sh
 task deps       # install Bun (if needed) + all dependencies
 task dev        # start Workers dev server (port 8787)
-task test       # run 25 e2e tests
+task test       # run 29 e2e tests
 ```
 
 Open http://localhost:8787 for the app, `/docs` for Scalar API docs, `/login` to sign in.
@@ -109,38 +109,39 @@ Open http://localhost:8787 for the app, `/docs` for Scalar API docs, `/login` to
 ```sh
 task fly:dev              # Bun server with persistent SSE (port 3000)
 task fly:dev:corrosion    # Bun + Corrosion multi-master sync (port 3000)
-task sw:dev               # build Service Worker + start dev server
+task sw:dev               # build local-mode bundles + start dev server
 ```
 
 ## Tri-Mode Architecture
 
 Three deployment targets from one codebase — no feature flags, no conditional imports.
 
-| | Workers (`index.ts`) | Fly.io (`server.ts`) | Service Worker (`sw.ts`) |
+| | Workers (`index.ts`) | Fly.io (`server.ts`) | Local-First (`sw/local-mode.ts`) |
 |---|---|---|---|
-| Runtime | Cloudflare Workers | Bun | Browser |
-| Database | D1 | bun:sqlite / Corrosion | sql.js (WASM) |
+| Runtime | Cloudflare Workers | Bun | Browser (Web Worker) |
+| Database | D1 | bun:sqlite / Corrosion | wa-sqlite + OPFS |
 | SSE | One-shot | Persistent (broadcast) | One-shot |
 | Auth | Better Auth + D1 | Better Auth + SQLite | None (public only) |
 | MCP | Yes | Yes | No |
 | Offline | No | No | Yes |
+| Cross-tab | D1 polling | In-memory broadcast | Leader Election + BroadcastChannel |
 
 ```
-Cloudflare Workers          Fly.io / Bun               Service Worker
-┌───────────────────┐    ┌───────────────────────┐    ┌──────────────────┐
-│  D1 (SQLite)      │    │  bun:sqlite / Corrosion│    │  sql.js (WASM)   │
-│  One-shot SSE     │    │  Persistent SSE        │    │  In-browser      │
-│  Auth + MCP       │    │  Real-time broadcast   │    │  Offline-capable │
-└─────────┬─────────┘    │  Auth + MCP            │    └────────┬─────────┘
-          │              └───────────┬───────────┘             │
-          │                          │                          │
+Cloudflare Workers          Fly.io / Bun               Local-First (Browser)
+┌───────────────────┐    ┌───────────────────────┐    ┌────────────────────────┐
+│  D1 (SQLite)      │    │  bun:sqlite / Corrosion│    │  wa-sqlite + OPFS      │
+│  One-shot SSE     │    │  Persistent SSE        │    │  Leader Election       │
+│  Auth + MCP       │    │  Real-time broadcast   │    │  (Web Locks API)       │
+└─────────┬─────────┘    │  Auth + MCP            │    │  Cross-tab via         │
+          │              └───────────┬───────────┘    │  BroadcastChannel      │
+          │                          │                 └────────┬───────────────┘
           └──────────────┬───────────┴──────────────────────────┘
                          │
                 ┌────────┴────────┐
                 │    api.ts       │  ← shared routes + content negotiation
                 │  queries.ts     │  ← shared SQL (D1 interface)
                 │  index.html     │  ← shared Datastar frontend
-                │  23 Playwright  │  ← shared tests
+                │  29 Playwright  │  ← shared tests
                 │    tests        │
                 └─────────────────┘
 ```
@@ -168,8 +169,8 @@ One route definition. One Zod schema. One handler. `respond(c, data)` checks `Ac
 ```ts
 // db.ts — bun:sqlite → D1
 const d1 = createD1Compat(sqliteDb)
-// sqljs-adapter.ts — sql.js (WASM) → D1
-const d1 = createD1Compat(sqljsDb)
+// sw/db-coordinator.ts — wa-sqlite + OPFS → D1 (Leader Election)
+const { db: d1 } = await initCoordinator()
 // corrosion/db.ts — Corrosion HTTP API → D1
 const d1 = initCorrosionDB(agentUrl)
 ```
@@ -211,11 +212,11 @@ All seeding is idempotent — safe on every cold start.
 task dev                  # Workers dev server (port 8787)
 task fly:dev              # Bun server with persistent SSE (port 3000)
 task fly:dev:corrosion    # Bun + Corrosion multi-master (port 3000)
-task sw:dev               # build Service Worker + start dev server
+task sw:dev               # build local-mode bundles + start dev server
 
 # Testing
-task test                 # 25 e2e tests headed + serial
-task test:ci              # 25 e2e tests headless + parallel (CI)
+task test                 # 29 e2e tests headed + serial
+task test:ci              # 29 e2e tests headless + parallel (CI)
 task fly:test             # same tests against Bun server
 task cf:test:deployed     # tests against production Workers
 task fly:test:deployed    # tests against production Fly.io
@@ -236,8 +237,8 @@ task fly:deploy           # deploy to Fly.io
 task login                # authenticate with Cloudflare
 task fly:login            # authenticate with Fly.io
 
-# Service Worker
-task sw:build             # bundle sw.ts → static/sw.js
+# Local Mode
+task sw:build             # bundle local-mode.js + db-worker.js + wa-sqlite.wasm
 
 # Corrosion
 task corrosion:install    # install Corrosion binary
@@ -255,38 +256,49 @@ task cf:ci:secrets        # set Cloudflare secrets in GitHub for CI
 # Entry points
 index.ts              # Cloudflare Workers entry
 server.ts             # Bun/Fly.io entry (persistent SSE)
-sw.ts                 # Service Worker entry (local-first, sql.js)
 
 # Route composition
 api.ts                # Full route composer (counter + notes + tasks)
-sw-api.ts             # Slim route composer for SW (counter + notes only)
 
 # Routes
 routes/
   counter.ts          # Counter OpenAPI routes + handlers
   notes.ts            # Notes CRUD OpenAPI routes + handlers
   tasks.ts            # Tasks CRUD with auth middleware
+  sessions.ts         # Session listing + revocation
 
 # Core
-queries.ts            # Raw D1 SQL queries (counter + notes)
-task-logic.ts         # Task CRUD business logic (Drizzle)
+queries.ts            # Raw D1 SQL queries (counter)
 sse.ts                # SSE helpers: respond, respondFragment, respondPersistent
 types.ts              # Shared types: AppEnv, BroadcastConfig
+constants.ts          # API paths, DOM selectors
 
-# Auth
-auth.ts               # Better Auth factory + requireAuth/requireAdmin middleware
-demo.ts               # Demo user + data seeding (counter, notes, tasks)
-
-# AI
-mcp.ts                # MCP server factory with 15 tools
+# Application logic
+lib/
+  auth.ts             # Better Auth factory + requireAuth/requireAdmin middleware
+  crud.ts             # Generic CRUD factory (user-scoped)
+  task-logic.ts       # Task CRUD business logic (Drizzle)
+  note-logic.ts       # Note CRUD business logic (Drizzle)
+  demo.ts             # Demo user + data seeding
+  docs.ts             # OpenAPI doc + Scalar mount
+  middleware.ts       # Error handler, 404, security headers
+  mcp/                # MCP server plugins (18 tools)
 
 # Schema
-schema.ts             # Drizzle ORM table definitions (auth + tasks)
+schema.ts             # Drizzle ORM table definitions (auth + tasks + notes)
 validators.ts         # Zod + OpenAPI validation schemas
 
+# Local-first mode (wa-sqlite + OPFS)
+sw/
+  local-mode.ts       # Entry point: Hono app + fetch handler (→ static/local-mode.js)
+  db-coordinator.ts   # Leader Election via Web Locks + BroadcastChannel
+  db-worker.ts        # Dedicated Worker: wa-sqlite + OPFS persistence
+  api.ts              # Slim route composer (counter only)
+  seed-data.ts        # Seed data constants
+
 # Database adapters
-db.ts                 # bun:sqlite → D1 adapter
-sqljs-adapter.ts      # sql.js (WASM) → D1 adapter
+db/
+  bun.ts              # bun:sqlite → D1 adapter
 corrosion/
   db.ts               # Corrosion HTTP API → D1 adapter
   local-manager.ts    # Manages local Corrosion agent process
@@ -297,15 +309,17 @@ static/
   index.html          # Datastar frontend (20 patterns, responsive)
   login.html          # Auth login/signup page
   datastar.js         # Self-hosted Datastar v1 RC.7 (+.map)
-  sql-wasm.wasm       # SQLite WASM for Service Worker (644 KB)
-  sw.js               # Service Worker bundle (build output, gitignored)
+  local-mode.js       # Local mode bundle (build output, gitignored)
+  db-worker.js        # DB worker bundle (build output, gitignored)
+  wa-sqlite.wasm      # wa-sqlite WASM binary (copied from node_modules)
 
 # Tests
 tests/
   counter.spec.ts     # 9 counter tests
   notes.spec.ts       # 6 notes/demo tests
   auth.spec.ts        # 6 auth/tasks/admin tests
-  sw.spec.ts          # 2 Service Worker tests
+  sessions.spec.ts    # 4 sessions tests
+  sw.spec.ts          # 4 local mode tests (Leader Election + OPFS)
 
 # Config
 wrangler.toml         # Cloudflare Workers config
@@ -369,7 +383,7 @@ Yes. `POST /api/counter/increment` returns `{"count": 3}` to curl and a `datasta
 
 **Q: Why three deployment modes?**
 
-Workers = serverless, zero infrastructure. Fly.io = persistent SSE, real-time broadcast, multi-master sync. Service Worker = offline-capable, zero network. Pick one or use all three — they share the same routes, queries, and frontend.
+Workers = serverless, zero infrastructure. Fly.io = persistent SSE, real-time broadcast, multi-master sync. Local-first = offline-capable, zero network (wa-sqlite + OPFS). Pick one or use all three — they share the same routes, queries, and frontend.
 
 **Q: Why SSE instead of WebSockets?**
 
@@ -389,7 +403,7 @@ No. Workers are ephemeral isolates — they can't share I/O objects between requ
 
 **Q: How does the D1 adapter work?**
 
-bun:sqlite is synchronous. The adapter wraps `stmt.get()` in `Promise.resolve()` behind `async first<T>()`. Awaiting a resolved promise is free — zero overhead, and `queries.ts` stays unchanged. The sql.js and Corrosion adapters follow the same pattern.
+bun:sqlite is synchronous. The adapter wraps `stmt.get()` in `Promise.resolve()` behind `async first<T>()`. Awaiting a resolved promise is free — zero overhead, and `queries.ts` stays unchanged. The wa-sqlite (Leader Election coordinator) and Corrosion adapters follow the same pattern.
 
 ## Reference Repos
 
