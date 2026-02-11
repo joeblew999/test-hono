@@ -56,7 +56,7 @@
         <span id="local-net-status" class="badge badge-sm badge-ghost text-primary-content border-primary-content/30"></span>
         <span id="local-changes" class="badge badge-sm badge-ghost text-primary-content border-primary-content/30" style="display:none"></span>
         <button id="local-sync-btn" class="btn btn-xs btn-ghost border border-primary-content/30 text-primary-content" style="display:none">Sync to Server</button>
-        <a href="/" class="btn btn-xs btn-ghost border border-primary-content/30 text-primary-content">Exit</a>
+        <button id="local-exit-btn" class="btn btn-xs btn-ghost border border-primary-content/30 text-primary-content">Exit</button>
     </div>
     <div class="max-w-4xl mx-auto px-6 py-12"
          data-signals='{"count": 0, "inputValue": 0, "lastKey": "", "isFetching": false, "newNote": "", "noteCount": 0, "noteError": "", "elapsed": 0, "debouncedText": "", "authEmail": "admin@example.com", "authPassword": "admin123", "authName": "Admin", "authUser": "", "authRole": "", "authError": "", "authMode": "signup", "taskTitle": "", "taskDesc": "", "taskFilter": "", "taskCount": 0, "taskError": "", "sessionCount": 0, "revokeSessionToken": ""}'
@@ -592,6 +592,15 @@
                 }).catch(function() {
                     syncBtn.textContent = '\u2716 Failed';
                     setTimeout(function() { syncBtn.textContent = 'Sync to Server'; syncBtn.disabled = false; }, 2000);
+                });
+            });
+
+            // --- Exit local mode ---
+            document.getElementById('local-exit-btn').addEventListener('click', function() {
+                navigator.serviceWorker.getRegistrations().then(function(regs) {
+                    return Promise.all(regs.map(function(r) { return r.unregister() }));
+                }).then(function() {
+                    location.href = '/';
                 });
             });
         } else {
