@@ -50,13 +50,18 @@
     </style>
 </head>
 <body class="bg-base-100">
+    <!-- Online Mode Banner (hidden when in local mode) -->
+    <div id="online-mode-banner" class="bg-success text-success-content text-center py-2 px-4 text-sm font-medium sticky top-0 z-50 flex items-center justify-center gap-3 flex-wrap" style="display:none">
+        <span>&#9889; Online Mode &mdash; Cloudflare D1</span>
+        <a href="?local" class="btn btn-xs btn-ghost border border-success-content/30 text-success-content">Go Offline</a>
+    </div>
     <!-- Local Mode Banner (hidden by default, shown by JS when SW is active) -->
     <div id="local-mode-banner" class="bg-primary text-primary-content text-center py-2 px-4 text-sm font-medium sticky top-0 z-50 flex items-center justify-center gap-3 flex-wrap" style="display:none">
         <span>&#9889; Local Mode &mdash; IndexedDB persistence</span>
-        <span id="local-net-status" class="badge badge-sm badge-ghost text-primary-content border-primary-content/30"></span>
+        <span id="local-net-status" class="badge badge-sm badge-ghost text-primary-content border-primary-content/30">checking...</span>
         <span id="local-changes" class="badge badge-sm badge-ghost text-primary-content border-primary-content/30" style="display:none"></span>
         <button id="local-sync-btn" class="btn btn-xs btn-ghost border border-primary-content/30 text-primary-content" style="display:none">Sync to Server</button>
-        <button id="local-exit-btn" class="btn btn-xs btn-ghost border border-primary-content/30 text-primary-content">Exit</button>
+        <button id="local-exit-btn" class="btn btn-xs btn-ghost border border-primary-content/30 text-primary-content">Go Online</button>
     </div>
     <div class="max-w-4xl mx-auto px-6 py-12"
          data-signals='{"count": 0, "inputValue": 0, "lastKey": "", "isFetching": false, "newNote": "", "noteCount": 0, "noteError": "", "elapsed": 0, "debouncedText": "", "authEmail": "admin@example.com", "authPassword": "admin123", "authName": "Admin", "authUser": "", "authRole": "", "authError": "", "authMode": "signup", "taskTitle": "", "taskDesc": "", "taskFilter": "", "taskCount": 0, "taskError": "", "sessionCount": 0, "revokeSessionToken": ""}'
@@ -75,7 +80,7 @@
         <header class="text-center mb-12">
             <h1 class="text-2xl font-bold tracking-tight">Hono + Datastar Showcase</h1>
             <p id="page-subtitle" class="text-base-content/50 text-sm">Datastar v1 patterns with OpenAPI content negotiation and D1 persistence</p>
-            <div class="flex gap-2 justify-center mt-4 flex-wrap">
+            <div id="tech-badges" class="flex gap-2 justify-center mt-4 flex-wrap">
                 <span class="badge badge-outline badge-sm">Hono</span>
                 <span class="badge badge-outline badge-sm">Datastar v1 RC.7</span>
                 <span class="badge badge-outline badge-sm">Cloudflare D1</span>
@@ -332,6 +337,7 @@
         <!-- ═══════════════════════════════════════ -->
         <!--  GROUP 4: AUTH + TASKS                   -->
         <!-- ═══════════════════════════════════════ -->
+        <div id="auth-tasks-group">
         <div class="text-xs font-semibold uppercase tracking-widest text-base-content/40 mt-10 mb-4 pl-1">Tasks</div>
 
         <!-- Sign-in prompt for unauthenticated users -->
@@ -488,6 +494,8 @@
             </div>
         </section>
 
+        </div><!-- /auth-tasks-group -->
+
         <!-- ═══════════════════════════════════════ -->
         <!--  GROUP 5: DEV TOOLS                     -->
         <!-- ═══════════════════════════════════════ -->
@@ -510,7 +518,6 @@
             <a href="/ui" class="link link-hover text-base-content/50">API Docs</a>
             <a href="/api/doc" class="link link-hover text-base-content/50">OpenAPI Spec</a>
             <a href="/api/counter" class="link link-hover text-base-content/50">API JSON</a>
-            <a id="local-mode-link" href="?local" class="link link-hover text-base-content/50" style="display:none">Local Mode</a>
         </div>
 
     </div>
@@ -538,21 +545,44 @@
             document.getElementById('local-mode-banner').style.display = '';
             // Update subtitle
             var sub = document.getElementById('page-subtitle');
-            if (sub) sub.textContent = 'Local-first mode \u2014 all data in your browser, no server required';
-            // Hide auth bar (SW has no auth routes)
-            document.querySelectorAll('.header-auth').forEach(function(el) { el.style.display = 'none'; });
+            if (sub) sub.textContent = 'Datastar v1 patterns with local-first SQLite \u2014 all data in your browser, no server required';
+            // Remove auth bar (SW has no auth routes; must remove, not hide, because data-show overrides display)
+            document.querySelectorAll('.header-auth').forEach(function(el) { el.remove(); });
+            // Swap tech badges for local-mode stack
+            var badges = document.getElementById('tech-badges');
+            if (badges) badges.innerHTML =
+                '<span class="badge badge-outline badge-sm">Hono</span>' +
+                '<span class="badge badge-outline badge-sm">Datastar v1 RC.7</span>' +
+                '<span class="badge badge-outline badge-sm">sql.js (SQLite WASM)</span>' +
+                '<span class="badge badge-outline badge-sm">IndexedDB</span>' +
+                '<span class="badge badge-outline badge-sm">Service Worker</span>';
+            // Remove auth-dependent sections (tasks, admin, sessions — no auth in SW mode)
+            var authGroup = document.getElementById('auth-tasks-group');
+            if (authGroup) authGroup.remove();
             // Remove session check (would 404 in SW mode)
             var sessionInit = document.querySelector('[data-init="@get(\'/api/session\')"]');
             if (sessionInit) sessionInit.remove();
 
-            // --- Network status indicator ---
+            // --- Real network detection (HEAD to / bypasses SW which only handles /api/*) ---
             var netEl = document.getElementById('local-net-status');
-            function updateNetStatus() {
-                netEl.textContent = navigator.onLine ? '\u{1F7E2} Online' : '\u{1F534} Offline';
+            var serverReachable = false;
+            function checkServer() {
+                var ctrl = new AbortController();
+                var timer = setTimeout(function() { ctrl.abort(); }, 3000);
+                fetch('/', { method: 'HEAD', signal: ctrl.signal, cache: 'no-store' })
+                    .then(function(r) {
+                        clearTimeout(timer);
+                        serverReachable = r.ok;
+                        netEl.textContent = r.ok ? 'server reachable' : 'server error';
+                    })
+                    .catch(function() {
+                        clearTimeout(timer);
+                        serverReachable = false;
+                        netEl.textContent = 'server unreachable';
+                    });
             }
-            updateNetStatus();
-            window.addEventListener('online', updateNetStatus);
-            window.addEventListener('offline', updateNetStatus);
+            checkServer();
+            setInterval(checkServer, 10000);
 
             // --- Mutation counter polling ---
             var changesEl = document.getElementById('local-changes');
@@ -562,7 +592,7 @@
                     if (d.mutations > 0) {
                         changesEl.textContent = d.mutations + ' change' + (d.mutations === 1 ? '' : 's');
                         changesEl.style.display = '';
-                        syncBtn.style.display = navigator.onLine ? '' : 'none';
+                        syncBtn.style.display = serverReachable ? '' : 'none';
                     } else {
                         changesEl.style.display = 'none';
                         syncBtn.style.display = 'none';
@@ -604,7 +634,8 @@
                 });
             });
         } else {
-            document.getElementById('local-mode-link').style.display = '';
+            // Show online mode banner
+            document.getElementById('online-mode-banner').style.display = '';
         }
     })();
     </script>

@@ -102,6 +102,8 @@ task test       # run 25 e2e tests
 
 Open http://localhost:8787 for the app, `/docs` for Scalar API docs, `/login` to sign in.
 
+**Offline mode:** http://localhost:8787/?local
+
 ### Other modes
 
 ```sh
