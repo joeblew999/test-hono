@@ -1,6 +1,6 @@
 # test-hono
 
-Hono + Datastar full-stack showcase — tri-mode deployment to Cloudflare Workers, Fly.io, and browser local-first mode. Same codebase, same 29 tests, same frontend.
+Hono + Datastar full-stack showcase — every action flows through the API (GUI → API → DB → GUI). Tri-mode deployment to Cloudflare Workers, Fly.io, and browser local-first mode. Same OpenAPI routes, same 29 tests, same frontend.
 
 **Live demo:** https://test-hono.gedw99.workers.dev (demo accounts pre-seeded)
 
@@ -151,6 +151,39 @@ Cloudflare Workers          Fly.io / Bun               Local-First (Browser)
                 │    tests        │
                 └─────────────────┘
 ```
+
+### Data flow: GUI → API → DB → GUI
+
+Every user action follows the same path — the API is always the single gateway between the frontend and the database:
+
+```
+User clicks "+1"
+    │
+    ▼
+Datastar: @post('/api/counter/increment')    ← frontend sends fetch()
+    │
+    ▼
+Hono OpenAPI route handler                   ← API validates + handles
+    │
+    ▼
+DB: UPDATE counter SET value = value + 1     ← write happens FIRST
+    │  RETURNING value
+    ▼
+respond(c, { count })                        ← response carries DB result
+    │
+    ├─ SSE? → datastar-patch-signals         ← Datastar auto-patches DOM
+    └─ JSON? → {"count": 43}                 ← curl / Scalar / MCP
+```
+
+The GUI **never** touches the database directly. The response always contains the value returned from the DB write (`RETURNING`). This is true across all three modes — on Workers the fetch goes to Cloudflare, on Fly.io it goes to Bun, and in local-first mode the fetch is intercepted and routed to the **same Hono route handler running inside the browser tab**.
+
+**Why this makes building on top easiest:**
+
+1. **One place to add a feature** — define an OpenAPI route with a Zod schema, write the DB query, return the result. The frontend, REST API, MCP tools, and tests all use the same endpoint. No duplication.
+2. **Every consumer is a fetch() call** — Datastar, curl, Scalar docs, MCP agents, Playwright tests, and even the local-first browser mode all talk to the same URL. Add a new consumer and it works immediately.
+3. **Validation once, everywhere** — Zod schemas validate at the API boundary. The frontend can't send bad data, MCP tools can't send bad data, and the DB never sees unvalidated input.
+4. **Swap the database, change nothing else** — the D1 adapter pattern means `queries.ts` works with D1, bun:sqlite, wa-sqlite, or Corrosion. Add a new storage backend by writing a 30-line adapter.
+5. **SSE for free** — `respond(c, data)` handles content negotiation automatically. Your route handler doesn't know or care whether it's serving a browser or a CLI.
 
 ### Content negotiation
 
