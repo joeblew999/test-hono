@@ -38,7 +38,7 @@ Two browser tabs connected via persistent SSE — increment the counter or add a
 
 | Add & Display | Add Multiple & Delete | Input Clears |
 |---------------|----------------------|--------------|
-| ![Add](docs/videos/notes-add-and-display.gif) | ![Multi](docs/videos/notes-add-multiple-and-delete.gif) | ![Clear](docs/videos/notes-input-clears-after-add.gif) |
+| ![Add](docs/videos/notes-notes-add-and-display.gif) | ![Multi](docs/videos/notes-notes-add-multiple-and-delete.gif) | ![Clear](docs/videos/notes-notes-input-clears-after-add.gif) |
 
 | Interval Timer | Reactive Styles | Signal Inspector |
 |----------------|-----------------|------------------|
@@ -54,6 +54,12 @@ Two browser tabs connected via persistent SSE — increment the counter or add a
 |------------|-------------|-----------------|
 | ![Tasks](docs/videos/auth-tasks-create-and-display.gif) | ![Admin](docs/videos/auth-admin-promoted-user-sees-admin-panel.gif) | ![Unauth](docs/videos/auth-admin-unauthenticated-user-sees-sign-in-prompt.gif) |
 
+### Sessions
+
+| Session List | Unauthenticated |
+|--------------|-----------------|
+| ![Sessions](docs/videos/sessions-sessions-authenticated-user-sees-session-list.gif) | ![Unauth](docs/videos/sessions-sessions-unauthenticated-user-does-not-see-sessions.gif) |
+
 ### Local-First (OPFS + Leader Election)
 
 | Offline Mode | Persistence | Round-Trip | Sync to Server |
@@ -68,7 +74,7 @@ Two browser tabs connected via persistent SSE — increment the counter or add a
 - **Authentication** — Better Auth with email+password, admin plugin, role-based access
 - **Task management** — authenticated CRUD with status tracking (pending/in_progress/completed)
 - **MCP endpoint** — 15 AI-agent tools (counter, notes, tasks, admin) via Streamable HTTP
-- **Local-first mode** — wa-sqlite + OPFS with Leader Election, works offline across tabs
+- **Local-first mode** — wa-sqlite + OPFS with Leader Election, runs the **same OpenAPI routes** in-browser, works offline across tabs
 - **Demo mode** — pre-seeded users, counter, notes, and tasks for instant exploration
 - **Real-time broadcast** — persistent SSE on Fly.io pushes changes to all connected tabs
 - **Multi-master sync** — Corrosion (cr-sqlite) replication across Fly.io nodes
@@ -86,7 +92,7 @@ Two browser tabs connected via persistent SSE — increment the counter or add a
 | AI integration | MCP protocol via [@hono/mcp](https://github.com/honojs/middleware/tree/main/packages/mcp) |
 | Serverless | [Cloudflare Workers](https://developers.cloudflare.com/workers/) (one-shot SSE) |
 | Persistent | [Fly.io](https://fly.io) + [Bun](https://bun.sh) (real-time SSE broadcast) |
-| Local-first | Web Worker + wa-sqlite + OPFS (Leader Election) |
+| Local-first | Web Worker + wa-sqlite + OPFS (Leader Election, same OpenAPI routes) |
 | Tests | [Playwright](https://playwright.dev) (29 e2e tests) |
 | Task runner | [Task](https://taskfile.dev) |
 
@@ -293,7 +299,7 @@ sw/
   local-mode.ts       # Entry point: Hono app + fetch handler (→ static/local-mode.js)
   db-coordinator.ts   # Leader Election via Web Locks + BroadcastChannel
   db-worker.ts        # Dedicated Worker: wa-sqlite + OPFS persistence
-  api.ts              # Slim route composer (counter only)
+  api.ts              # Slim route composer (imports shared routes/counter.ts)
   seed-data.ts        # Seed data constants
 
 # Database adapters
@@ -383,7 +389,7 @@ Yes. `POST /api/counter/increment` returns `{"count": 3}` to curl and a `datasta
 
 **Q: Why three deployment modes?**
 
-Workers = serverless, zero infrastructure. Fly.io = persistent SSE, real-time broadcast, multi-master sync. Local-first = offline-capable, zero network (wa-sqlite + OPFS). Pick one or use all three — they share the same routes, queries, and frontend.
+Workers = serverless, zero infrastructure. Fly.io = persistent SSE, real-time broadcast, multi-master sync. Local-first = offline-capable, zero network (wa-sqlite + OPFS). All three modes run the **same OpenAPI routes** (`routes/counter.ts`, etc.) — local-first imports them directly, not a copy. Pick one or use all three.
 
 **Q: Why SSE instead of WebSockets?**
 

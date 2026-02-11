@@ -1,6 +1,6 @@
-# Hono Service Worker — Local-First Mode (Implemented)
+# Hono Service Worker — Local-First Mode (SUPERSEDED)
 
-## Status: DONE (Phase 1)
+## Status: SUPERSEDED — replaced by Leader Election + wa-sqlite + OPFS (see CLAUDE.md)
 
 Datastar makes `@get('/api/counter')`, `@post('/api/notes')` etc. via `fetch()`. We register Hono as a **browser Service Worker** that intercepts these exact same fetch calls. Datastar thinks it's talking to a server, but everything runs locally in the browser — queries hit **sql.js** (SQLite WASM) instead of D1.
 

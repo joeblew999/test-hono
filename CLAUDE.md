@@ -99,7 +99,7 @@ Single set of OpenAPI routes serves both JSON and SSE:
 - **Local-First** (`sw/local-mode.ts`): wa-sqlite (WASM) + OPFS, opt-in via `?local` query param
 - `db/bun.ts` adapter wraps bun:sqlite to match D1Database interface
 - `sw/db-coordinator.ts` implements Leader Election (Web Locks) + BroadcastChannel for cross-tab D1 access
-- `sw/api.ts` — slim OpenAPI route composer (counter only, no auth/notes/tasks/MCP)
+- `sw/api.ts` — imports the **same OpenAPI routes** from `routes/counter.ts` (shared code, not a copy)
 - Same routes, same frontend, same 29 tests on all platforms
 
 ## Local-First Architecture (Leader Election + OPFS)
@@ -120,8 +120,8 @@ Tab 3 (Follower) ──→ BroadcastChannel ──→ Tab 1 ──→ Worker
 **Flow:**
 1. Page installs fetch override synchronously (before Datastar loads)
 2. `local-mode.js` module loads: runs leader election → spawns Worker (if Leader) or proxies via BroadcastChannel (if Follower)
-3. Both roles get the same D1Database interface → Hono app works identically
-4. Fetch override routes `/api/*` to the in-page Hono app
+3. Both roles get the same D1Database interface → same OpenAPI Hono routes run identically
+4. Fetch override routes `/api/*` to the in-page Hono app (same `routes/counter.ts` as Workers/Fly.io)
 5. Data persists in OPFS across page loads/tab closures
 
 **Build:** `task sw:build` produces `static/local-mode.js` + `static/db-worker.js` + copies `static/wa-sqlite.wasm`
@@ -175,7 +175,7 @@ Workers can't share I/O between requests, so persistent SSE uses D1 polling (no 
 - `task test` — headed + serial (real browser, ~30s)
 - `task test:ci` — headless + parallel (fast, for CI)
 - `task docs` — generate all doc assets (screenshots + videos + sync demo)
-- `task videos` — 25 per-test GIFs (flat files, clean names)
+- `task videos` — 29 per-test GIFs (flat files, clean names)
 - `task sync-demo` — two-tab side-by-side sync demo GIF
 - `task screenshots` — responsive screenshots at 3 viewports
 - `pressSequentially` not `fill` for `data-bind` inputs
@@ -183,8 +183,8 @@ Workers can't share I/O between requests, so persistent SSE uses D1 polling (no 
 - `tests/fixtures.ts` — shared `signUpViaLoginPage` / `signInViaLoginPage` helpers (used by auth, notes, sessions tests)
 
 ### Playwright Configs
-- `playwright.config.ts` — main test suite (25 tests, excludes screenshots + sync-demo)
-- `playwright.videos.ts` — video recording of all 25 tests → `docs/videos/*.gif`
+- `playwright.config.ts` — main test suite (29 tests, excludes screenshots + sync-demo)
+- `playwright.videos.ts` — video recording of all 29 tests → `docs/videos/*.gif`
 - `playwright.screenshots.ts` — responsive screenshots → `docs/screenshots/{mobile,tablet,desktop}/`
 - `playwright.sync-demo.ts` — two-tab sync demo → `docs/videos/sync-demo.gif`
 
@@ -197,7 +197,7 @@ Workers can't share I/O between requests, so persistent SSE uses D1 polling (no 
 - `task test` — run 29 e2e tests headed + serial
 - `task test:ci` — run 29 e2e tests headless + parallel
 - `task docs` — generate all doc assets (screenshots + videos + sync demo)
-- `task videos` — record 25 test GIFs to docs/videos/
+- `task videos` — record 29 test GIFs to docs/videos/
 - `task sync-demo` — record two-tab sync demo GIF
 - `task screenshots` — capture screenshots at 3 viewports
 - `task db:generate` — generate SQL migration from schema.ts changes (drizzle-kit)
