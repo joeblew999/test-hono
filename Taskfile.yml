@@ -11,8 +11,8 @@ version: '3'
 #   task cf:dev        # Cloudflare Workers dev server (port 8787)
 #   task fly:dev       # Bun server with persistent SSE (port 3000)
 #   task sw:dev        # build local-mode bundles + start dev server
-#   task test          # 29 e2e tests against Workers
-#   task fly:test      # same 29 e2e tests against Bun
+#   task test          # 30 e2e tests against Workers
+#   task fly:test      # same 30 e2e tests against Bun
 #
 # All tasks are idempotent — safe to run multiple times.
 
@@ -125,13 +125,13 @@ tasks:
       - tail -f {{.CF_LOG}}
 
   cf:test:
-    desc: "Run 29 e2e tests headed + serial against Workers"
+    desc: "Run 30 e2e tests headed + serial against Workers"
     cmds:
       - task: cf:start
       - bun run test
 
   cf:test:ci:
-    desc: "Run 29 e2e tests headless + parallel (fast, for CI)"
+    desc: "Run 30 e2e tests headless + parallel (fast, for CI)"
     cmds:
       - task: cf:start
       - HEADED=0 bun run test
@@ -388,7 +388,7 @@ tasks:
       - tail -f {{.FLY_LOG}}
 
   fly:test:
-    desc: "Run 29 e2e tests against local Bun server"
+    desc: "Run 30 e2e tests against local Bun server"
     cmds:
       - task: fly:start
       - BASE_URL={{.FLY_URL}} bun run test

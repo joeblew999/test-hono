@@ -62,6 +62,7 @@
         <span id="local-net-status" class="badge badge-sm badge-outline text-warning-content border-warning-content/50">checking...</span>
         <span id="local-changes" class="badge badge-sm badge-outline text-warning-content border-warning-content/50" style="display:none"></span>
         <button id="local-sync-btn" class="btn btn-xs btn-ghost border border-warning-content/50 text-warning-content" style="display:none">Sync to Server</button>
+        <button id="local-clear-btn" class="btn btn-xs btn-ghost border border-warning-content/50 text-warning-content">Clear Data</button>
         <button id="local-exit-btn" class="btn btn-xs btn-ghost border border-warning-content/50 text-warning-content">Go Online</button>
     </div>
     <div class="max-w-4xl mx-auto px-6 py-12"
@@ -528,7 +529,19 @@
     // This script runs SYNCHRONOUSLY before Datastar so the fetch override is in place
     // before any data-init SSE connections fire.
     (function() {
-        var isLocal = new URLSearchParams(location.search).has('local');
+        var params = new URLSearchParams(location.search);
+        var isLocal = params.has('local');
+        var isClear = params.has('clear');
+
+        // ?clear — wipe OPFS (no coordinator running), then redirect to ?local
+        if (isClear) {
+            navigator.storage.getDirectory().then(function(root) {
+                return root.removeEntry('wa-sqlite-local', { recursive: true }).catch(function() {});
+            }).then(function() {
+                location.href = '/?local';
+            });
+            return; // stop — don't initialize anything else
+        }
 
         if (isLocal) {
             // 1. Save original fetch and install override BEFORE Datastar loads
@@ -632,7 +645,15 @@
                 });
             });
 
-            // 7. Exit local mode (just navigate — no SW to unregister)
+            // 7. Clear local data — navigate to /?clear (no coordinator running) to wipe OPFS
+            document.getElementById('local-clear-btn').addEventListener('click', function() {
+                var btn = document.getElementById('local-clear-btn');
+                btn.textContent = 'Clearing\u2026';
+                btn.disabled = true;
+                location.href = '/?clear';
+            });
+
+            // 8. Exit local mode (just navigate — no SW to unregister)
             document.getElementById('local-exit-btn').addEventListener('click', function() {
                 location.href = '/';
             });

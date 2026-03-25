@@ -100,7 +100,7 @@ Single set of OpenAPI routes serves both JSON and SSE:
 - `db/bun.ts` adapter wraps bun:sqlite to match D1Database interface
 - `sw/db-coordinator.ts` implements Leader Election (Web Locks) + BroadcastChannel for cross-tab D1 access
 - `sw/api.ts` — imports the **same OpenAPI routes** from `routes/counter.ts` (shared code, not a copy)
-- Same routes, same frontend, same 29 tests on all platforms
+- Same routes, same frontend, same 30 tests on all platforms
 
 ## Local-First Architecture (Leader Election + OPFS)
 
@@ -169,7 +169,7 @@ Workers can't share I/O between requests, so persistent SSE uses D1 polling (no 
 
 ## Testing
 
-- 29 Playwright e2e tests (9 counter + 6 notes/demo + 6 auth + 4 sessions + 4 local mode)
+- 30 Playwright e2e tests (9 counter + 6 notes/demo + 6 auth + 4 sessions + 5 local mode)
 - 1 sync-demo test (two-tab cross-tab live sync, video-only)
 - 4 screenshot tests (3 viewports × 4 screenshots)
 - `task test` — headed + serial (real browser, ~30s)
@@ -183,8 +183,8 @@ Workers can't share I/O between requests, so persistent SSE uses D1 polling (no 
 - `tests/fixtures.ts` — shared `signUpViaLoginPage` / `signInViaLoginPage` helpers (used by auth, notes, sessions tests)
 
 ### Playwright Configs
-- `playwright.config.ts` — main test suite (29 tests, excludes screenshots + sync-demo)
-- `playwright.videos.ts` — video recording of all 29 tests → `docs/videos/*.gif`
+- `playwright.config.ts` — main test suite (30 tests, excludes screenshots + sync-demo)
+- `playwright.videos.ts` — video recording of all 30 tests → `docs/videos/*.gif`
 - `playwright.screenshots.ts` — responsive screenshots → `docs/screenshots/{mobile,tablet,desktop}/`
 - `playwright.sync-demo.ts` — two-tab sync demo → `docs/videos/sync-demo.gif`
 

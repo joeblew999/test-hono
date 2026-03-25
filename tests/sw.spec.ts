@@ -73,25 +73,71 @@ test.describe('Local mode (Leader Election + OPFS)', () => {
     await expect(page.locator('.count')).toHaveText(SEED_COUNT_PLUS_1, { timeout: 15000 })
   })
 
-  test('online→offline round-trip: counter not zero after switching', async ({ page }) => {
-    // Start in online mode
-    await page.goto(`${BASE}/`)
-    await expect(page.locator('.count')).not.toHaveText('', { timeout: 5000 })
+  test('online→offline round-trip: counter never shows zero', async ({ page, request }) => {
+    // Set server counter to a known value (7) so we can distinguish online vs offline vs zero
+    await request.post(`${BASE}${API.COUNTER_RESET}`)
+    for (let i = 0; i < 7; i++) {
+      await request.post(`${BASE}${API.COUNTER_INCREMENT}`)
+    }
 
-    // Switch to local mode via ?local (simulates clicking "Go Offline")
+    // Start in online mode — verify counter shows 7
+    await page.goto(`${BASE}/`)
+    await expect(page.locator('.count')).toHaveText('7', { timeout: 5000 })
+
+    // Install a MutationObserver to catch if counter ever shows "0" during transitions
+    await page.evaluate(() => {
+      (window as any).__counterHistory = []
+      const el = document.querySelector('.count')!
+      const obs = new MutationObserver(() => {
+        const text = el.textContent?.trim() ?? ''
+        if (text) (window as any).__counterHistory.push(text)
+      })
+      obs.observe(el, { childList: true, characterData: true, subtree: true })
+    })
+
+    // Switch to local mode via ?local — counter should show seed value (42), never "0"
     await page.goto(`${BASE}/?local`)
-    // Counter should show seed value (42), NOT zero
     await expect(page.locator('.count')).toHaveText(SEED_COUNT, { timeout: 15000 })
 
-    // Increment works in local mode
+    // Verify counter is specifically NOT "0" or "7" (should be seed=42)
+    const localCount = await page.locator('.count').textContent()
+    expect(localCount?.trim()).toBe(SEED_COUNT)
+    expect(localCount?.trim()).not.toBe('0')
+    expect(localCount?.trim()).not.toBe('7')
+
+    // Increment works in local mode (42→43)
     await page.locator('button', { hasText: '+' }).click()
     await expect(page.locator('.count')).toHaveText(SEED_COUNT_PLUS_1, { timeout: 3000 })
 
     // Switch back to online mode (Go Online button)
     await page.locator('#local-exit-btn').click()
     await page.waitForURL(`${BASE}/`)
-    // Online counter loads from server (independent of local state)
-    await expect(page.locator('.count')).not.toHaveText('', { timeout: 5000 })
+
+    // Online counter should show 7 (server value), not 42/43 (local) and not 0
+    await expect(page.locator('.count')).toHaveText('7', { timeout: 5000 })
+    const onlineCount = await page.locator('.count').textContent()
+    expect(onlineCount?.trim()).toBe('7')
+    expect(onlineCount?.trim()).not.toBe('0')
+    expect(onlineCount?.trim()).not.toBe(SEED_COUNT)
+  })
+
+  test('clear data button resets local state to seed values', async ({ page }) => {
+    await waitForLocalMode(page)
+
+    // Increment counter from seed → seed+1
+    await page.locator('button', { hasText: '+' }).click()
+    await expect(page.locator('.count')).toHaveText(SEED_COUNT_PLUS_1, { timeout: 3000 })
+
+    // Click Clear Data button — navigates to /?clear (kills coordinator), clears OPFS, redirects to /?local
+    await page.locator('#local-clear-btn').click()
+
+    // Wait for redirect chain: /?clear → OPFS wipe → /?local
+    await page.waitForURL(`${BASE}/?local`, { timeout: 15000 })
+
+    // After clear + redirect, counter should be back to seed value (42)
+    await expect(page.locator('.count')).toHaveText(SEED_COUNT, { timeout: 15000 })
+    // Verify we're in local mode
+    expect(page.url()).toContain('?local')
   })
 
   test('sync pushes local state to the real server', async ({ page, request }) => {
